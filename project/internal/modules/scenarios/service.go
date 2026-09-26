@@ -57,6 +57,15 @@ func errDraftChanged() *httpx.Error {
 func errModeLockedConflict() *httpx.Error {
 	return httpx.NewError(httpx.KindModeLocked, "По сценарию уже есть версии — режим не меняется; сделайте копию.")
 }
+func errGenerationRunning() *httpx.Error {
+	return httpx.NewError(httpx.KindGenerationRunning, "Генерация уже идёт.")
+}
+func errGenerationBlocksDraft() *httpx.Error {
+	return httpx.NewError(httpx.KindGenerationRunning, "Идёт генерация — дождитесь её окончания.")
+}
+func errDraftMissingForEdit() *httpx.Error {
+	return httpx.NewError(httpx.KindDraftMissing, "Сначала создайте черновик.")
+}
 
 func fieldError(path, message string) *httpx.Error {
 	return httpx.NewError(httpx.KindValidationFailed, message).WithErrors([]gen.FieldError{{Path: path, Message: message}})
@@ -467,6 +476,13 @@ func (s *service) SaveDraft(ctx context.Context, a actor.Actor, id uuid.UUID, do
 		if row.ArchivedAt != nil {
 			return errArchived()
 		}
+		// Идёт генерация (этап 05, «решения по умолчанию» плана): она сама
+		// пишет черновик по итогу задания, и ручная правка в это время
+		// затёрла бы её результат или сама была бы затёрта им — 409, а не
+		// гонка результатов.
+		if generationStatus(row.Generation) == "running" {
+			return errGenerationBlocksDraft()
+		}
 		if ifMatch != nil && *ifMatch != draftETag(row.DraftUpdatedAt) {
 			return errDraftChanged()
 		}
@@ -818,6 +834,127 @@ func (s *service) Version(ctx context.Context, id uuid.UUID) (VersionInfo, error
 		Title: v.Title, Sphere: gen.Sphere(v.Sphere), NegotiationType: gen.NegotiationType(v.NegotiationType),
 		Document: v.Document,
 	}, nil
+}
+
+// --- Authoring (контракт наружу для generation, этап 05) ---
+
+var _ Authoring = (*service)(nil)
+
+// generationStatus — только поле status из scenarios.generation, без
+// остального: нужен в двух не связанных друг с другом местах (SaveDraft —
+// нельзя ли начать правку прямо сейчас, BeginGeneration — не идёт ли уже
+// задание) и не стоит того, чтобы протаскивать через них весь снимок.
+// Повреждённая generation — дефект самого generation (единственного
+// писателя этого столбца), не пользовательский ввод; молчать о нём нельзя
+// (правило 8), но и валить операцию из-за витринного поля не стоит — как
+// уже решено для passportOrGeneration.
+func generationStatus(raw json.RawMessage) string {
+	if raw == nil {
+		return ""
+	}
+	var g struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(raw, &g); err != nil {
+		log.Printf("scenarios: не удалось разобрать generation: %v", err)
+		return ""
+	}
+	return g.Status
+}
+
+func (s *service) GenerationState(ctx context.Context, id uuid.UUID) (GenerationSnapshot, error) {
+	row, err := s.store.get(ctx, s.pool, id)
+	if errors.Is(err, errScenarioNotFound) {
+		return GenerationSnapshot{}, errScenarioMissing()
+	}
+	if err != nil {
+		return GenerationSnapshot{}, err
+	}
+	return GenerationSnapshot{
+		State: row.Generation, Draft: row.DraftDocument,
+		Mode: gen.Mode(row.Mode), Archived: row.ArchivedAt != nil,
+	}, nil
+}
+
+// BeginGeneration — старт задания (D-05): архив, идущее задание и (для
+// правки) отсутствие черновика — три независимых 409/404 на входе, в
+// одной транзакции с самой записью, чтобы никто не проскочил в щель между
+// проверкой и записью (та же гвардия SELECT … FOR UPDATE, что у SaveDraft
+// и Publish).
+func (s *service) BeginGeneration(ctx context.Context, id uuid.UUID, isEdit bool, state json.RawMessage) error {
+	return pg.WithTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		row, err := s.store.getForUpdate(ctx, tx, id)
+		if errors.Is(err, errScenarioNotFound) {
+			return errScenarioMissing()
+		}
+		if err != nil {
+			return err
+		}
+		if row.ArchivedAt != nil {
+			return errArchived()
+		}
+		if isEdit && row.DraftDocument == nil {
+			return errDraftMissingForEdit()
+		}
+		if generationStatus(row.Generation) == "running" {
+			return errGenerationRunning()
+		}
+		return s.store.setGeneration(ctx, tx, id, state)
+	})
+}
+
+func (s *service) UpdateGeneration(ctx context.Context, id uuid.UUID, state json.RawMessage) error {
+	return s.store.setGeneration(ctx, s.pool, id, state)
+}
+
+// FinishGeneration — конец задания: успех сохраняется тем же путём, что
+// SaveDraft (Validate → draft_check, Fingerprint, draft_updated_*), одной
+// транзакцией с generation; отличие от SaveDraft — здесь никогда не
+// меняется scenarios.mode (документ авторства уже приведён к нему самим
+// generation до вызова, «решения по умолчанию» плана этапа 05) и не
+// блокируется схемными ошибками (FR-SC-15 — про ручное сохранение;
+// результат генерации сохраняется с диагностикой для правки в форме, даже
+// если она осталась). Провал (document == nil) трогает только generation.
+func (s *service) FinishGeneration(ctx context.Context, id uuid.UUID, state json.RawMessage, document json.RawMessage, actorID uuid.UUID) error {
+	if document == nil {
+		return s.store.setGeneration(ctx, s.pool, id, state)
+	}
+
+	diags := scenariodoc.Validate(document)
+	fingerprint, err := scenariodoc.Fingerprint(document)
+	if err != nil {
+		return fmt.Errorf("отпечаток документа после генерации: %w", err)
+	}
+	tree, err := decodeTree(document)
+	if err != nil {
+		return fmt.Errorf("разбор документа после генерации: %w", err)
+	}
+	slug := passportField(tree, "id")
+	checkJSON, err := json.Marshal(toCheckResult(diags))
+	if err != nil {
+		return fmt.Errorf("сериализация результата проверки: %w", err)
+	}
+	now := time.Now().UTC().Truncate(time.Microsecond)
+
+	return pg.WithTx(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		if _, err := s.store.getForUpdate(ctx, tx, id); err != nil {
+			if errors.Is(err, errScenarioNotFound) {
+				return errScenarioMissing()
+			}
+			return err
+		}
+		if err := s.store.saveDraft(ctx, tx, id, draftUpdate{
+			Slug: slug, Mode: nil, DraftDocument: document, DraftFingerprint: fingerprint,
+			DraftCheck: checkJSON, DraftUpdatedAt: now, UpdatedBy: actorID,
+		}); err != nil {
+			return err
+		}
+		return s.store.setGeneration(ctx, tx, id, state)
+	})
+}
+
+func (s *service) FailRunningGenerations(ctx context.Context, message string) (int, error) {
+	return s.store.failRunningGenerations(ctx, s.pool, message)
 }
 
 // --- работа с деревом документа ---

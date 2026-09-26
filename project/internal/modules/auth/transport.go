@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"slices"
 
 	"github.com/google/uuid"
 
@@ -66,28 +67,63 @@ func (t *Transport) Middleware(next gen.StrictHandlerFunc, operation string) gen
 			return nil, httpx.NotImplemented()
 		}
 
-		u, err := t.authenticate(ctx, r)
+		ctx, err := t.authorizeRoles(ctx, w, r, access.Roles, operation)
 		if err != nil {
-			var httpErr *httpx.Error
-			if errors.As(err, &httpErr) && httpErr.Kind == httpx.KindUnauthenticated {
-				if _, cookieErr := r.Cookie(sessionCookieName); cookieErr == nil {
-					http.SetCookie(w, t.cookies.clear())
-				}
-			}
 			return nil, err
 		}
-		if !access.Allows(string(u.Role)) {
-			if err := t.service.DenyRole(ctx, u.ID, operation); err != nil {
-				return nil, err
-			}
-			return nil, httpx.NewError(httpx.KindForbiddenRole, "Это действие недоступно вашей роли.")
-		}
-
-		http.SetCookie(w, t.cookies.issue(u.ID))
-		ctx = actor.With(ctx, actor.Actor{UserID: u.ID, Role: u.Role})
 		resp, err := next(ctx, w, r, request)
 		applyCookie(w, state)
 		return resp, err
+	}
+}
+
+// authorizeRoles — вход и проверка роли, общие для strict-middleware
+// (Middleware выше, роли берутся из x-roles контракта) и обычного
+// http-middleware (PortalMiddleware ниже, для четырёх ручных адресов
+// авторства сценария, D-05, у которых записи в контракте нет и роли
+// передаются явно). Продлевает cookie на успехе; отказ по роли пишет в
+// журнал под действием операции, если оно есть (roleDenialActions).
+func (t *Transport) authorizeRoles(ctx context.Context, w http.ResponseWriter, r *http.Request, roles []string, operation string) (context.Context, error) {
+	u, err := t.authenticate(ctx, r)
+	if err != nil {
+		var httpErr *httpx.Error
+		if errors.As(err, &httpErr) && httpErr.Kind == httpx.KindUnauthenticated {
+			if _, cookieErr := r.Cookie(sessionCookieName); cookieErr == nil {
+				http.SetCookie(w, t.cookies.clear())
+			}
+		}
+		return ctx, err
+	}
+	if !slices.Contains(roles, string(u.Role)) {
+		if err := t.service.DenyRole(ctx, u.ID, operation); err != nil {
+			return ctx, err
+		}
+		return ctx, httpx.NewError(httpx.KindForbiddenRole, "Это действие недоступно вашей роли.")
+	}
+	http.SetCookie(w, t.cookies.issue(u.ID))
+	return actor.With(ctx, actor.Actor{UserID: u.ID, Role: u.Role}), nil
+}
+
+// PortalMiddleware — обычное http-middleware для четырёх адресов
+// авторства сценария (D-05): их нет в контракте, поэтому нет и записи в
+// t.access — роли передаются вызывающей стороной (cmd/portal/router.go),
+// а не читаются по имени операции. Переиспользует authorizeRoles — тот же
+// вход, тот же отказ по роли и то же продление cookie, что и у
+// сгенерированных операций.
+func (t *Transport) PortalMiddleware(operation string, roles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx, err := t.authorizeRoles(r.Context(), w, r, roles, operation)
+			if err != nil {
+				var httpErr *httpx.Error
+				if !errors.As(err, &httpErr) {
+					httpErr = httpx.NewError(httpx.KindInternal, "Что-то пошло не так на сервере. Попробуйте ещё раз.")
+				}
+				httpx.WriteError(w, httpErr)
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
 	}
 }
 

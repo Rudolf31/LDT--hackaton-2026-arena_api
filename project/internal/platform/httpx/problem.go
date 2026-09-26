@@ -50,6 +50,14 @@ const (
 	KindDecisionIneligible    Kind = "decision_ineligible"
 	KindRateLimited           Kind = "rate_limited"
 
+	// KindGenerationRunning и KindDraftMissing — четыре адреса авторства
+	// сценария (генерация/правка голосом и текстом, D-05, этап 05) вне
+	// arena-api.yaml: контракт их не описывает, а arena-portal-hr.md 8.1 —
+	// общий каталог ошибок — про них тоже не знает. Оба заведены здесь же,
+	// по образцу остальных: 409, готовая русская фраза на месте создания.
+	KindGenerationRunning Kind = "generation_running"
+	KindDraftMissing      Kind = "draft_missing"
+
 	// KindNotImplemented и KindInternal в arena-portal-hr.md 8.1 нет — это
 	// не ошибки предметной области, а состояния самого портала: операция ещё
 	// не собрана (D-17) или отказ, которого каталог не предвидел. NFR-R-03
@@ -93,6 +101,8 @@ var statusByKind = map[Kind]int{
 	KindScenarioCheckFailed:   http.StatusUnprocessableEntity,
 	KindDecisionIneligible:    http.StatusUnprocessableEntity,
 	KindRateLimited:           http.StatusTooManyRequests,
+	KindGenerationRunning:     http.StatusConflict,
+	KindDraftMissing:          http.StatusConflict,
 	KindNotImplemented:        http.StatusNotImplemented,
 	KindInternal:              http.StatusInternalServerError,
 }

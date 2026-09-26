@@ -59,3 +59,60 @@ type RehearsalCounter interface {
 type VersionSessionCounter interface {
 	Counts(ctx context.Context, versionIDs []uuid.UUID) (map[uuid.UUID]int, error)
 }
+
+// Authoring — контракт для модуля generation (этап 05, D-05): хранит и
+// решает scenarios (владелец таблицы scenarios.generation, CLAUDE.md,
+// «Устройство модуля»), формат содержимого состояния (State) решает сам
+// generation — здесь оно проходит как непрозрачный json.RawMessage.
+type Authoring interface {
+	// GenerationState — снимок для GET /generation и для самого задания:
+	// состояние как есть (nil, если сценарий никогда не входил в
+	// авторство), текущий черновик (nil, если его ещё нет — нужен как base
+	// для правки), режим и архивность сценария. 404, если сценария нет.
+	GenerationState(ctx context.Context, id uuid.UUID) (GenerationSnapshot, error)
+
+	// BeginGeneration — старт задания: в транзакции (SELECT … FOR UPDATE)
+	// проверяет, что сценарий не в архиве, что не идёт другое задание и,
+	// для правки (isEdit=true — voice-edit/text-edit), что черновик уже
+	// есть, и одним UPDATE записывает state со статусом running. На любой
+	// из трёх отказов и на отсутствие сценария — готовая *httpx.Error
+	// (409/409/409/404), которую можно возвращать клиенту как есть.
+	BeginGeneration(ctx context.Context, id uuid.UUID, isEdit bool, state json.RawMessage) error
+
+	// UpdateGeneration — смена этапа/попытки во время идущего задания:
+	// задание — единственный писатель generation, пока оно running,
+	// поэтому проверок BeginGeneration здесь нет, только запись.
+	UpdateGeneration(ctx context.Context, id uuid.UUID, state json.RawMessage) error
+
+	// FinishGeneration — конец задания. document != nil (успех): документ
+	// проверяется (scenariodoc.Validate) и сохраняется в черновик тем же
+	// путём, что SaveDraft (draft_check, отпечаток, draft_updated_*), и
+	// generation — одной транзакцией; passport.mode результата в этот
+	// путь не входит — его приводит к scenarios.mode сам generation до
+	// вызова. document == nil (провал): меняется только generation,
+	// черновик остаётся как был.
+	FinishGeneration(ctx context.Context, id uuid.UUID, state json.RawMessage, document json.RawMessage, actorID uuid.UUID) error
+
+	// FailRunningGenerations — при старте портала переводит все задания
+	// со статусом running в failed с переданным сообщением (arena-api.yaml,
+	// getGeneration: «портал закрывает зависшие задания»). Возвращает
+	// число закрытых заданий — для строки в логе при старте.
+	FailRunningGenerations(ctx context.Context, message string) (int, error)
+}
+
+// GenerationSnapshot — то, что нужно за пределами scenarios, чтобы решить
+// судьбу задания и собрать ответ GET /generation (решения этапа 05, D-31).
+type GenerationSnapshot struct {
+	// State — scenarios.generation как есть; nil, если сценарий заведён не
+	// из брифа и авторства ещё не касался (GET /generation тогда отвечает
+	// {"status":"idle"}).
+	State json.RawMessage
+	// Draft — текущий черновик, если он есть; base для правки
+	// (voice-edit/text-edit) генератору, nil — для создания с нуля.
+	Draft json.RawMessage
+	Mode  gen.Mode
+	// Archived — сценарий в архиве; используется скорее для диагностики,
+	// чем для решения — BeginGeneration проверяет архивность сам, в своей
+	// транзакции, не полагаясь на этот снимок вне её.
+	Archived bool
+}

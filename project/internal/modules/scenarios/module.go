@@ -27,3 +27,6 @@ func New(pool *pgxpool.Pool, auditWriter audit.Writer, settingsSvc settings.Serv
 }
 
 func (m *Module) Versions() Versions { return m.service }
+
+// Authoring — контракт для модуля generation (этап 05).
+func (m *Module) Authoring() Authoring { return m.service }

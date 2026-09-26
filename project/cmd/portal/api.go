@@ -6,6 +6,7 @@ import (
 	"arena-portal-backend/internal/api/gen"
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
+	"arena-portal-backend/internal/modules/generation"
 	"arena-portal-backend/internal/modules/people"
 	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
@@ -26,11 +27,12 @@ import (
 // модуль). У модуля, для которого этап ещё не наступил, поля в структуре
 // нет — оно появляется вместе с его этапом плана.
 type api struct {
-	auth      *auth.Transport
-	people    *people.Transport
-	audit     *audit.Transport
-	settings  *settings.Transport
-	scenarios *scenarios.Transport
+	auth       *auth.Transport
+	people     *people.Transport
+	audit      *audit.Transport
+	settings   *settings.Transport
+	scenarios  *scenarios.Transport
+	generation *generation.Transport
 }
 
 var _ gen.StrictServerInterface = (*api)(nil)
@@ -199,14 +201,17 @@ func (a *api) ArchiveScenario(ctx context.Context, request gen.ArchiveScenarioRe
 
 // --- generation (этап 05) ---
 //
-// GetGeneration принадлежит контракту и архитектуре 13.2. ConfirmGenerationStep
-// и RegenerateGenerationStep — из старого пути авторства (анкета из десяти полей,
-// шаговое подтверждение): CLAUDE.md отменяет его, arena-api.yaml по авторству
-// отстаёт (D-05) и всё ещё их генерирует. Ни один модуль их не реализует —
-// это два метода, которые остаются 501 навсегда, а не до какого-то этапа.
+// GetGeneration принадлежит контракту и архитектуре 13.2 — реализована модулем
+// generation, D-31 (свой тип ответа вместо устаревшего gen.GenerationState).
+// ConfirmGenerationStep и RegenerateGenerationStep — из старого пути авторства
+// (анкета из десяти полей, шаговое подтверждение): CLAUDE.md отменяет его,
+// arena-api.yaml по авторству отстаёт (D-05) и всё ещё их генерирует. Ни один
+// модуль их не реализует — это два метода, которые остаются 501 навсегда, а
+// не до какого-то этапа. Остальные четыре адреса авторства в контракте нет —
+// они монтируются в cmd/portal/router.go прямо на chi, в обход этого адаптера.
 
 func (a *api) GetGeneration(ctx context.Context, request gen.GetGenerationRequestObject) (gen.GetGenerationResponseObject, error) {
-	return nil, notImplemented()
+	return a.generation.GetGeneration(ctx, request)
 }
 
 func (a *api) ConfirmGenerationStep(ctx context.Context, request gen.ConfirmGenerationStepRequestObject) (gen.ConfirmGenerationStepResponseObject, error) {

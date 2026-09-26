@@ -72,4 +72,50 @@ func TestLoadOK(t *testing.T) {
 	if cfg.StartedAt.IsZero() {
 		t.Fatal("StartedAt должен быть заполнен")
 	}
+	if cfg.GenConfigured() {
+		t.Fatal("без ARENA_GEN_KEY/ARENA_GEN_MODEL генерация не должна считаться настроенной")
+	}
+	if cfg.STTConfigured() {
+		t.Fatal("без ARENA_STT_MODEL расшифровка не должна считаться настроенной")
+	}
+	if cfg.GenURL != defaultGenURL {
+		t.Fatalf("ARENA_GEN_URL по умолчанию должен быть облаком OpenRouter, получено %q", cfg.GenURL)
+	}
+}
+
+// TestLoadGenerationDefaults — D-35: ARENA_STT_KEY/ARENA_STT_URL по
+// умолчанию берутся из ARENA_GEN_KEY/ARENA_GEN_URL, а ARENA_GEN_KEY и
+// ARENA_GEN_MODEL включают генерацию, ARENA_STT_MODEL — расшифровку.
+func TestLoadGenerationDefaults(t *testing.T) {
+	setValidEnv(t)
+	t.Setenv("ARENA_GEN_KEY", "gen-key")
+	t.Setenv("ARENA_GEN_MODEL", "gen-model")
+	t.Setenv("ARENA_STT_MODEL", "stt-model")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if !cfg.GenConfigured() {
+		t.Fatal("с ARENA_GEN_KEY и ARENA_GEN_MODEL генерация должна считаться настроенной")
+	}
+	if !cfg.STTConfigured() {
+		t.Fatal("с ARENA_STT_MODEL расшифровка должна считаться настроенной")
+	}
+	if cfg.STTKey != "gen-key" {
+		t.Fatalf("ARENA_STT_KEY по умолчанию должен быть равен ARENA_GEN_KEY, получено %q", cfg.STTKey)
+	}
+	if cfg.STTURL != defaultGenURL {
+		t.Fatalf("ARENA_STT_URL по умолчанию должен быть равен ARENA_GEN_URL, получено %q", cfg.STTURL)
+	}
+
+	t.Setenv("ARENA_STT_KEY", "stt-key")
+	t.Setenv("ARENA_STT_URL", "https://stt.example/v1")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("неожиданная ошибка: %v", err)
+	}
+	if cfg.STTKey != "stt-key" || cfg.STTURL != "https://stt.example/v1" {
+		t.Fatalf("явно заданные ARENA_STT_KEY/ARENA_STT_URL не должны подменяться значениями по умолчанию: %+v", cfg)
+	}
 }

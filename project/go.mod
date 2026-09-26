@@ -8,6 +8,7 @@ require (
 	github.com/gowebpki/jcs v1.0.2
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/oapi-codegen/runtime v1.7.0
+	github.com/revrost/go-openrouter v1.8.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	golang.org/x/crypto v0.57.0
 	gopkg.in/yaml.v3 v3.0.1

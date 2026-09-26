@@ -21,9 +21,11 @@ import (
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/demo"
+	"arena-portal-backend/internal/modules/generation"
 	"arena-portal-backend/internal/modules/people"
 	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
+	"arena-portal-backend/internal/platform/ai"
 	"arena-portal-backend/internal/platform/config"
 	"arena-portal-backend/internal/platform/httpx"
 	arenalog "arena-portal-backend/internal/platform/log"
@@ -125,6 +127,28 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	scenariosModule := scenarios.New(pool, auditModule, settingsModule.Service(), noRehearsalsYet{}, noSessionsYet{})
 	demoModule := demo.New(pool, authModule.Provisioner(), peopleModule.Provisioner())
 
+	// Авторство сценария голосом и текстом (этап 05, D-34/D-35): клиенты
+	// моделей собираются только когда настроены — иначе nil, и generation
+	// сам отвечает 503 на адресах, которым нужна отсутствующая модель.
+	// baseCtx заданий — ctx процесса (тот же, что слушает сигнал остановки
+	// в run()), не контекст HTTP-запроса, который задание запустил.
+	var generator ai.ScenarioGenerator
+	if cfg.GenConfigured() {
+		prompt, err := generation.BuildSystemPrompt()
+		if err != nil {
+			return nil, fmt.Errorf("сборка системного промпта генерации: %w", err)
+		}
+		generator = ai.NewGenerator(cfg.GenURL, cfg.GenKey, cfg.GenModel, prompt)
+	}
+	var transcriber ai.Transcriber
+	if cfg.STTConfigured() {
+		transcriber = ai.NewTranscriber(cfg.STTURL, cfg.STTKey, cfg.STTModel)
+	}
+	generationModule := generation.New(scenariosModule.Authoring(), transcriber, generator, limiters.Generation, logger, ctx)
+	if err := generationModule.Recover(ctx); err != nil {
+		return nil, fmt.Errorf("закрытие зависших заданий авторства при старте: %w", err)
+	}
+
 	seeded, err := demoModule.SeedIfEmpty(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("первичная заливка данных: %w", err)
@@ -135,11 +159,12 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	}
 
 	a := &api{
-		auth:      authModule.Transport,
-		people:    peopleModule.Transport,
-		audit:     auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
-		settings:  settingsModule,
-		scenarios: scenariosModule.Transport,
+		auth:       authModule.Transport,
+		people:     peopleModule.Transport,
+		audit:      auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
+		settings:   settingsModule,
+		scenarios:  scenariosModule.Transport,
+		generation: generationModule.Transport,
 	}
-	return buildRouter(a, authModule.Transport.Middleware, bodySchemas, logger), nil
+	return buildRouter(a, authModule.Transport.Middleware, authModule.Transport.PortalMiddleware, bodySchemas, logger), nil
 }

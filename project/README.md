@@ -69,7 +69,7 @@ make down   # остановить
 | `make up` | Собрать образ и поднять `postgres` + `portal` (`docker compose up -d --build`). |
 | `make down` | Остановить и убрать контейнеры (том с данными Postgres остаётся). |
 | `make test` | `go test ./...` — модульные тесты, без базы. |
-| `make test-integration` | Интеграционные тесты (тег `integration`) — нужен поднятый `postgres` (`make up` или `docker compose -f deploy/docker-compose.yml --env-file .env up -d postgres`) и адрес роли-владельца в `ARENA_TEST_ADMIN_DSN` (по умолчанию `postgres://postgres:postgres@localhost:5432/postgres`; с паролем из `.env` — `postgres://postgres:<POSTGRES_SUPERUSER_PASSWORD>@localhost:5432/postgres?sslmode=disable`). Каждый тест поднимает одноразовую базу и дропает её по завершении. |
+| `make test-integration` | Интеграционные тесты (тег `integration`) — нужен поднятый `postgres` (`make up`). Цель подхватывает `.env`: адрес роли-владельца собирается из `POSTGRES_SUPERUSER`/`POSTGRES_SUPERUSER_PASSWORD`, пароль `arena_app` — `ARENA_APP_PASSWORD` (тот же, что у портала: роль общая на кластер, иначе тесты отрезали бы запущенный портал от базы). Явные `ARENA_TEST_ADMIN_DSN`/`ARENA_TEST_APP_PASSWORD` важнее. Каждый тест поднимает одноразовую базу и дропает её по завершении. `TestRetentionMatchesSchema` до этапа 11 пропускается; запуск — `ARENA_TEST_RETENTION=1`. |
 | `make lint` | Линтер границ модулей (`golangci-lint` + `depguard`) — падает, если `store.go` или `transport.go` модуля импортируют другой модуль напрямую (D-18); `contract.go`, `module.go`, `service.go` — импортируют контракты других модулей свободно, как и требует архитектура 3.3. |
 | `make gen` | Перегенерировать HTTP-типы (`internal/api/gen`) из `api/arena-api.yaml`. Коммитить результат. |
 | `make tidy` | `go mod tidy`. |
@@ -97,9 +97,26 @@ scripts/                статические проверки инвариан
 
 Полный список с описанием — в `.env.example`. Обязательные без значения по умолчанию:
 `ARENA_MASTER_KEY`, `ARENA_CODE_HMAC_SECRET`, плюс для docker-compose —
-`POSTGRES_SUPERUSER_PASSWORD`, `ARENA_APP_PASSWORD`. Модели авторства сценария
-(`ARENA_STT_*`, `ARENA_GEN_*`) необязательны — без них соответствующие адреса отвечают 503,
-остальной портал работает как обычно.
+`POSTGRES_SUPERUSER_PASSWORD`, `ARENA_APP_PASSWORD`.
+
+Модели авторства сценария голосом и текстом (этап 05, D-34/D-35) — необязательны:
+- `ARENA_GEN_KEY` + `ARENA_GEN_MODEL` включают генерацию документа сценария;
+  `ARENA_GEN_URL` можно не задавать — по умолчанию облако OpenRouter
+  (`https://openrouter.ai/api/v1`). Без ключа и модели все четыре адреса авторства
+  (`generation/audio`, `generation/text`, `draft/voice-edit`, `draft/text-edit`) отвечают
+  503 `generation_unavailable` «Модель генерации не настроена.» — форма, шаблоны, копия и
+  импорт сценария работают как обычно.
+- `ARENA_STT_MODEL` включает расшифровку речи для двух голосовых адресов;
+  `ARENA_STT_KEY`/`ARENA_STT_URL` можно не задавать — по умолчанию берутся из
+  `ARENA_GEN_KEY`/`ARENA_GEN_URL` (один ключ OpenRouter на обе модели). Без расшифровки
+  голосовые адреса отвечают 503 «Расшифровка речи не настроена.», текстовые продолжают
+  работать при настроенной генерации.
+- И расшифровка, и генерация используют библиотеку `github.com/revrost/go-openrouter`
+  (D-13, D-32) — ключа и адреса OpenRouter в этом репозитории нет и не будет: тесты и
+  проверка идут на двойниках и `httptest`.
+
+mp3 нигде не сохраняется — ни в базе, ни на диске, ни в логе (I-11): в памяти процесса на
+время расшифровки, дальше остаётся только текст расшифровки в `scenarios.generation`.
 
 `ARENA_COOKIE_SECURE` (по умолчанию `true`) — флаг `Secure` у cookie входа, см. «Первый вход».
 

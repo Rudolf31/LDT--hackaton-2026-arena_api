@@ -11,8 +11,10 @@ lint:
 test:
 	go test ./...
 
+# .env подхватывается, чтобы тесты знали пароли владельца и arena_app
+# (internal/platform/pgtest); явно заданные ARENA_TEST_* важнее.
 test-integration:
-	go test -tags=integration ./...
+	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; go test -tags=integration ./...
 
 tidy:
 	go mod tidy

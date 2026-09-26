@@ -15,6 +15,10 @@ import (
 
 const keyLengthBytes = 32
 
+// defaultGenURL — облако OpenRouter, адрес по умолчанию для генерации
+// документа сценария, если ARENA_GEN_URL не задан (D-35).
+const defaultGenURL = "https://openrouter.ai/api/v1"
+
 type Config struct {
 	DatabaseURL string
 	// MasterKey и CodeHMACSecret — уже декодированные из base64, ровно 32 байта
@@ -23,6 +27,12 @@ type Config struct {
 	CodeHMACSecret []byte
 	Listen         string
 
+	// STT* / Gen* — авторство сценария голосом и текстом (этап 05, D-35).
+	// ARENA_GEN_KEY + ARENA_GEN_MODEL включают генерацию документа;
+	// ARENA_GEN_URL необязателен (по умолчанию — облако OpenRouter).
+	// ARENA_STT_MODEL включает расшифровку; ARENA_STT_KEY/ARENA_STT_URL
+	// необязательны и по умолчанию берутся из Gen* — один ключ OpenRouter
+	// на обе модели, если методолог не завёл для расшифровки отдельный.
 	STTURL, STTKey, STTModel string
 	GenURL, GenKey, GenModel string
 
@@ -82,12 +92,15 @@ func Load() (Config, error) {
 		CodeHMACSecret: codeHMACSecret,
 		Listen:         orDefault("ARENA_LISTEN", ":8080"),
 
-		STTURL:   os.Getenv("ARENA_STT_URL"),
-		STTKey:   os.Getenv("ARENA_STT_KEY"),
-		STTModel: os.Getenv("ARENA_STT_MODEL"),
-		GenURL:   os.Getenv("ARENA_GEN_URL"),
+		GenURL:   orDefault("ARENA_GEN_URL", defaultGenURL),
 		GenKey:   os.Getenv("ARENA_GEN_KEY"),
 		GenModel: os.Getenv("ARENA_GEN_MODEL"),
+
+		// STTKey/STTURL по умолчанию — из Gen* (D-35): методолог заводит один
+		// ключ OpenRouter на обе модели, если не хочет разделять их явно.
+		STTURL:   orDefault("ARENA_STT_URL", orDefault("ARENA_GEN_URL", defaultGenURL)),
+		STTKey:   orDefault("ARENA_STT_KEY", os.Getenv("ARENA_GEN_KEY")),
+		STTModel: os.Getenv("ARENA_STT_MODEL"),
 
 		Demo:          orDefaultBool("ARENA_DEMO", true),
 		DemoModelKeys: orDefaultBool("DEMO_MODEL_KEYS", false),
@@ -121,19 +134,30 @@ func decodeKey(envName, raw string) ([]byte, error) {
 	return decoded, nil
 }
 
-// GenerationConfigured сообщает, настроены ли обе модели авторства сценария
-// (расшифровка речи и генерация документа). Без них адреса авторства отвечают
-// 503 с русским текстом, а форма и остальной портал работают как обычно.
-func (c Config) GenerationConfigured() bool {
-	return c.STTURL != "" && c.STTKey != "" && c.GenURL != "" && c.GenKey != ""
+// GenConfigured сообщает, настроена ли генерация документа сценария
+// (D-34/D-35): без неё все четыре адреса авторства отвечают 503 —
+// текстовые сразу, голосовые ещё и потому, что расшифровка без генерации
+// всё равно ничего не производит. Форма, шаблоны, копия и импорт работают
+// как обычно. GenURL в это условие не входит — у него всегда есть
+// значение по умолчанию (облако OpenRouter).
+func (c Config) GenConfigured() bool {
+	return c.GenKey != "" && c.GenModel != ""
+}
+
+// STTConfigured сообщает, настроена ли расшифровка речи (D-34/D-35):
+// без неё голосовые адреса авторства (generation/audio, draft/voice-edit)
+// отвечают 503, текстовые не затронуты. STTURL/STTKey в это условие не
+// входят — у них всегда есть значение по умолчанию (из Gen*).
+func (c Config) STTConfigured() bool {
+	return c.STTModel != ""
 }
 
 // Describe — строка режима для лога при старте (архитектура 11.2): без
 // секретов, только то, что влияет на поведение.
 func (c Config) Describe() string {
 	return fmt.Sprintf(
-		"демо-режим=%v, ключи демо-гостям=%v, авторство сценария настроено=%v, cookie Secure=%v, адрес=%s",
-		c.Demo, c.DemoModelKeys, c.GenerationConfigured(), c.CookieSecure, c.Listen,
+		"демо-режим=%v, ключи демо-гостям=%v, генерация сценария настроена=%v, расшифровка речи настроена=%v, cookie Secure=%v, адрес=%s",
+		c.Demo, c.DemoModelKeys, c.GenConfigured(), c.STTConfigured(), c.CookieSecure, c.Listen,
 	)
 }
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"arena-portal-backend/internal/platform/pg"
 )
@@ -20,10 +21,14 @@ var (
 	errVersionNotFound  = errors.New("версия сценария не найдена")
 )
 
-// querier — общее у *pgxpool.Pool и pgx.Tx (как в people/store.go).
+// querier — общее у *pgxpool.Pool и pgx.Tx (как в people/store.go). Exec
+// нужен setGeneration/failRunningGenerations (этап 05): UpdateGeneration
+// пишет вне транзакции (задание — единственный писатель, пока идёт), а
+// BeginGeneration/FinishGeneration — внутри своей.
 type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 type scenarioRow struct {
@@ -281,6 +286,46 @@ func likeQuery(q string) string {
 		return ""
 	}
 	return "%" + likeEscaper.Replace(trimmed) + "%"
+}
+
+// --- авторство (этап 05, Authoring) ---
+
+// setGeneration перезаписывает scenarios.generation целиком — формат
+// содержимого решает generation, store в него не заглядывает.
+func (s *store) setGeneration(ctx context.Context, q querier, id uuid.UUID, state json.RawMessage) error {
+	tag, err := q.Exec(ctx, `UPDATE scenarios SET generation = $2 WHERE id = $1`, id, state)
+	if err != nil {
+		return fmt.Errorf("запись состояния авторства: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return errScenarioNotFound
+	}
+	return nil
+}
+
+// failRunningGenerations — при старте портала (arena-api.yaml, getGeneration:
+// «портал закрывает зависшие задания»): состояние конкретного задания
+// (этап, попытки, расшифровка) generation не разбирает и не знает — сюда
+// приходит уже готовый JSON-патч `{"status":"failed","error":{...},
+// "finished_at":...}`, который через `||` дополняет то, что уже лежит в
+// столбце, не трогая остальные его поля (attempts, stage, transcript…).
+func (s *store) failRunningGenerations(ctx context.Context, q querier, message string) (int, error) {
+	patch, err := json.Marshal(map[string]any{
+		"status":      "failed",
+		"error":       map[string]any{"message": message, "retry_after_seconds": nil},
+		"finished_at": time.Now().UTC().Truncate(time.Microsecond),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("сериализация отказа при перезапуске: %w", err)
+	}
+	tag, err := q.Exec(ctx, `
+		UPDATE scenarios SET generation = generation || $1::jsonb
+		WHERE generation ->> 'status' = 'running'
+	`, patch)
+	if err != nil {
+		return 0, fmt.Errorf("закрытие зависших заданий авторства: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
 }
 
 // --- версии ---
