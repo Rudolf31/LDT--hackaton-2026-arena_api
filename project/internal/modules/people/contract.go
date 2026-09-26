@@ -27,6 +27,23 @@ type Service interface {
 	// DisplayName — ФИО или псевдоним для экранов с доступом; ok = false
 	// после отзыва согласия (виден только номер).
 	DisplayName(ctx context.Context, subjectID uuid.UUID) (name string, isPseudonym bool, ok bool, err error)
+	// Person — то, что о человеке за номером нужно экрану согласия и
+	// отметке о письменном согласии: группа, ФИО или псевдоним, табельный
+	// номер, отозвано ли согласие на внешнюю нейросеть. После отзыва
+	// согласия связи «номер → человек» нет — ErrKeyDestroyed; нет номера —
+	// ErrSubjectNotFound.
+	Person(ctx context.Context, subjectID uuid.UUID) (PersonFacts, error)
+}
+
+// PersonFacts — сведения о сотруднике для других модулей. Имя отсюда идёт
+// только в текст экрана и в HMAC показанного текста, но не в журнал и не
+// в лог (CLAUDE.md, правило 5).
+type PersonFacts struct {
+	GroupID             uuid.UUID
+	FullName            *string
+	Pseudonym           *string
+	PersonnelNo         *string
+	ExternalAIWithdrawn bool
 }
 
 // AssignmentCanceller — интерфейс потребителя: отзыв согласия отменяет

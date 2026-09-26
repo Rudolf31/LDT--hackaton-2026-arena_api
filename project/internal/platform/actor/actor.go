@@ -30,3 +30,25 @@ func From(ctx context.Context) (Actor, bool) {
 	a, ok := ctx.Value(ctxKey{}).(Actor)
 	return a, ok
 }
+
+// Trainer — клиент-тренажёр, пришедший с токеном (участник, гость демо).
+// Кладёт его middleware токена тренажёра (этап 07); права по нему всё равно
+// проверяются по базе — токен говорит, кто пришёл, а не что ему можно
+// (D-48).
+type Trainer struct {
+	Kind         string
+	SubjectID    *uuid.UUID
+	AssignmentID *uuid.UUID
+	DemoGuestID  *uuid.UUID
+}
+
+type trainerKey struct{}
+
+func WithTrainer(ctx context.Context, t Trainer) context.Context {
+	return context.WithValue(ctx, trainerKey{}, t)
+}
+
+func TrainerFrom(ctx context.Context) (Trainer, bool) {
+	t, ok := ctx.Value(trainerKey{}).(Trainer)
+	return t, ok
+}

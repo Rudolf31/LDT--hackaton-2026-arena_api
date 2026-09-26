@@ -520,6 +520,27 @@ func (s *service) DisplayName(ctx context.Context, subjectID uuid.UUID) (string,
 	return *p.Pseudonym, true, true, nil
 }
 
+func (s *service) Person(ctx context.Context, subjectID uuid.UUID) (PersonFacts, error) {
+	p, err := s.store.person(ctx, s.pool, subjectID, false)
+	if errors.Is(err, errPersonNotFound) {
+		wrapped, keyErr := s.store.wrappedKey(ctx, s.pool, subjectID)
+		if keyErr != nil {
+			return PersonFacts{}, keyErr
+		}
+		if wrapped == nil {
+			return PersonFacts{}, ErrKeyDestroyed
+		}
+		return PersonFacts{}, ErrSubjectNotFound
+	}
+	if err != nil {
+		return PersonFacts{}, err
+	}
+	return PersonFacts{
+		GroupID: p.GroupID, FullName: p.FullName, Pseudonym: p.Pseudonym,
+		PersonnelNo: p.PersonnelNo, ExternalAIWithdrawn: p.ExternalAIWithdrawnAt != nil,
+	}, nil
+}
+
 // --- Provisioner ---
 
 func (s *service) CreateGroupTx(ctx context.Context, tx pgx.Tx, g NewGroup, actorID *uuid.UUID) (uuid.UUID, error) {

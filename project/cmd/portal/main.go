@@ -20,9 +20,11 @@ import (
 	arenaapi "arena-portal-backend/api"
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
+	"arena-portal-backend/internal/modules/consents"
 	"arena-portal-backend/internal/modules/demo"
 	"arena-portal-backend/internal/modules/generation"
 	"arena-portal-backend/internal/modules/people"
+	"arena-portal-backend/internal/modules/profiles"
 	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/ai"
@@ -125,7 +127,14 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	peopleModule := people.New(pool, auditModule, authModule.GroupAccess(), noAssignmentsYet{}, cfg.MasterKey)
 	settingsModule := settings.New(pool, auditModule, cfg.Demo)
 	scenariosModule := scenarios.New(pool, auditModule, settingsModule.Service(), noRehearsalsYet{}, noSessionsYet{})
-	demoModule := demo.New(pool, authModule.Provisioner(), peopleModule.Provisioner())
+	// Профили и согласия (этап 06). «Проверить профиль» — заглушка «не
+	// проверялось» (архитектура 10.3); идущих сессий и назначений до
+	// этапа 07 нет — заглушки из stubs.go.
+	profilesModule := profiles.New(pool, auditModule, cfg.MasterKey, nil, noRunningSessionsYet{})
+	consentsModule := consents.New(pool, auditModule, authModule.GroupAccess(), peopleModule.Service(),
+		profilesModule.Service(), noTrainerEntryYet{})
+	demoModule := demo.New(pool, authModule.Provisioner(), peopleModule.Provisioner(),
+		profilesModule.Provisioner(), consentsModule.Provisioner())
 
 	// Авторство сценария голосом и текстом (этап 05, D-34/D-35): клиенты
 	// моделей собираются только когда настроены — иначе nil, и generation
@@ -149,6 +158,17 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 		return nil, fmt.Errorf("закрытие зависших заданий авторства при старте: %w", err)
 	}
 
+	baseline, err := demoModule.EnsureBaseline(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("базовая заливка (профиль по умолчанию, тексты согласий): %w", err)
+	}
+	if baseline.DefaultProfileCreated {
+		logger.Warn("заведён профиль тренажёра по умолчанию без ключей — задайте ключ OpenRouter в портале")
+	}
+	if baseline.ConsentTextsCreated > 0 {
+		logger.Info("заведены тексты согласий версии 1 с демо-реквизитами оператора", "видов", baseline.ConsentTextsCreated)
+	}
+
 	seeded, err := demoModule.SeedIfEmpty(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("первичная заливка данных: %w", err)
@@ -165,6 +185,8 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 		settings:   settingsModule,
 		scenarios:  scenariosModule.Transport,
 		generation: generationModule.Transport,
+		profiles:   profilesModule.Transport,
+		consents:   consentsModule.Transport,
 	}
 	return buildRouter(a, authModule.Transport.Middleware, authModule.Transport.PortalMiddleware, bodySchemas, logger), nil
 }

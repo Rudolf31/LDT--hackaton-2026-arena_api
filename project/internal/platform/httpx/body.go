@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -95,11 +96,23 @@ func Body(schemas *BodySchemas) func(http.Handler) http.Handler {
 				}
 			}
 
+			r = r.WithContext(context.WithValue(r.Context(), rawBodyKey{}, raw))
 			r.Body = io.NopCloser(bytes.NewReader(raw))
 			r.ContentLength = int64(len(raw))
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+type rawBodyKey struct{}
+
+// RawBody — тело запроса в том виде, в каком оно пришло и прошло фильтр
+// emotion и проверку по схеме. Нужно там, где сгенерированный тип теряет
+// разницу между «поле не передано» и «поле равно null» (D-43: настройки
+// профиля тренажёра и PUT …/keys, где null значит «удалить»).
+func RawBody(ctx context.Context) ([]byte, bool) {
+	raw, ok := ctx.Value(rawBodyKey{}).([]byte)
+	return raw, ok
 }
 
 // hasBody — тело в HTTP/1.1 сигнализируется либо явным Content-Length,

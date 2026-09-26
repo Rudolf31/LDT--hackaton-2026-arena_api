@@ -11,5 +11,21 @@
     {"group": "Отдел продаж (демо)", "full_name": "Игорь Лебедев (демо)", "personnel_no": "DEMO-002", "job_title": "Ведущий менеджер по продажам"},
     {"group": "Отдел продаж (демо)", "full_name": "Мария Ковалёва (демо)", "personnel_no": "DEMO-003", "job_title": "Специалист по закупкам"},
     {"group": "Отдел продаж (демо)", "pseudonym": "Сотрудник-4 (демо)", "personnel_no": "DEMO-004", "job_title": "Стажёр отдела продаж"}
-  ]
+  ],
+  "default_profile": {
+    "name": "Профиль по умолчанию",
+    "settings": {
+      "openrouter": {"base_url": "https://openrouter.ai/api/v1"},
+      "primary_route": "openrouter",
+      "models": {
+        "opponent": {"model": "qwen/qwen3-32b", "context_window": 32768, "max_tokens": 400},
+        "participant_judge": {"model": "qwen/qwen3-32b", "context_window": 32768, "max_tokens": 800},
+        "opponent_judge": {"model": "qwen/qwen3-32b", "context_window": 32768, "max_tokens": 800}
+      },
+      "input_mode": "push_to_talk",
+      "camera": {"enabled": false, "emotion_labels_to_opponent": false},
+      "limits": {"max_turns": 30, "session_minutes": 20},
+      "model_providers_note": "Qwen — Alibaba Cloud (Китай); маршрутизация запросов — OpenRouter (США). Демо-сведения."
+    }
+  }
 }

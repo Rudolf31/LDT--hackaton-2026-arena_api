@@ -6,8 +6,10 @@ import (
 	"arena-portal-backend/internal/api/gen"
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
+	"arena-portal-backend/internal/modules/consents"
 	"arena-portal-backend/internal/modules/generation"
 	"arena-portal-backend/internal/modules/people"
+	"arena-portal-backend/internal/modules/profiles"
 	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/httpx"
@@ -33,6 +35,8 @@ type api struct {
 	settings   *settings.Transport
 	scenarios  *scenarios.Transport
 	generation *generation.Transport
+	profiles   *profiles.Transport
+	consents   *consents.Transport
 }
 
 var _ gen.StrictServerInterface = (*api)(nil)
@@ -108,41 +112,41 @@ func (a *api) WithdrawConsent(ctx context.Context, request gen.WithdrawConsentRe
 // --- consents (этап 06) ---
 
 func (a *api) TrainerRecordConsents(ctx context.Context, request gen.TrainerRecordConsentsRequestObject) (gen.TrainerRecordConsentsResponseObject, error) {
-	return nil, notImplemented()
+	return a.consents.TrainerRecordConsents(ctx, request)
 }
 
 func (a *api) RecordWrittenConsent(ctx context.Context, request gen.RecordWrittenConsentRequestObject) (gen.RecordWrittenConsentResponseObject, error) {
-	return nil, notImplemented()
+	return a.consents.RecordWrittenConsent(ctx, request)
 }
 
 // --- profiles (этап 06) ---
 
 func (a *api) ListTrainerProfiles(ctx context.Context, request gen.ListTrainerProfilesRequestObject) (gen.ListTrainerProfilesResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.ListTrainerProfiles(ctx, request)
 }
 
 func (a *api) CreateTrainerProfile(ctx context.Context, request gen.CreateTrainerProfileRequestObject) (gen.CreateTrainerProfileResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.CreateTrainerProfile(ctx, request)
 }
 
 func (a *api) GetTrainerProfile(ctx context.Context, request gen.GetTrainerProfileRequestObject) (gen.GetTrainerProfileResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.GetTrainerProfile(ctx, request)
 }
 
 func (a *api) UpdateTrainerProfile(ctx context.Context, request gen.UpdateTrainerProfileRequestObject) (gen.UpdateTrainerProfileResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.UpdateTrainerProfile(ctx, request)
 }
 
 func (a *api) ReplaceTrainerProfileKeys(ctx context.Context, request gen.ReplaceTrainerProfileKeysRequestObject) (gen.ReplaceTrainerProfileKeysResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.ReplaceTrainerProfileKeys(ctx, request)
 }
 
 func (a *api) CheckTrainerProfile(ctx context.Context, request gen.CheckTrainerProfileRequestObject) (gen.CheckTrainerProfileResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.CheckTrainerProfile(ctx, request)
 }
 
 func (a *api) ArchiveTrainerProfile(ctx context.Context, request gen.ArchiveTrainerProfileRequestObject) (gen.ArchiveTrainerProfileResponseObject, error) {
-	return nil, notImplemented()
+	return a.profiles.ArchiveTrainerProfile(ctx, request)
 }
 
 // --- scenarios (этап 04) ---

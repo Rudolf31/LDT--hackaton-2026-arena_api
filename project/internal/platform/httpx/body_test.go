@@ -163,3 +163,24 @@ func TestBodyRequiredMissing(t *testing.T) {
 		t.Fatalf("ожидался 400, получили %d", rec.Code)
 	}
 }
+
+func TestBodyPutsCheckedRawBodyIntoContext(t *testing.T) {
+	var got []byte
+	var ok bool
+	handler := testBodyMiddleware(t)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, ok = RawBody(r.Context())
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	body := `{"name":"x"}`
+	req := httptest.NewRequest(http.MethodPost, "/test/echo", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("статус %d, тело %s", rec.Code, rec.Body.String())
+	}
+	if !ok || string(got) != body {
+		t.Fatalf("RawBody: ok=%v, тело %q", ok, got)
+	}
+}
