@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"arena-portal-backend/internal/api/gen"
+	"arena-portal-backend/internal/platform/httpx"
 )
 
 // Transport — адреса входа и старта клиента-тренажёра; cmd/portal/api.go
@@ -180,4 +181,224 @@ func toScreen(s ConsentScreen) gen.ConsentScreen {
 		})
 	}
 	return out
+}
+
+// --- разговор (этап 08) ---
+
+// rawBody — тело как пришло (D-43): сгенерированные типы не отличают
+// null от отсутствия поля и теряют объекты движка. Без middleware тела
+// (в тестах службы) — то же тело, собранное заново из типа.
+func rawBody(ctx context.Context, typed any) ([]byte, error) {
+	if raw, ok := httpx.RawBody(ctx); ok {
+		return raw, nil
+	}
+	return json.Marshal(typed)
+}
+
+func (t *Transport) TrainerPostEvents(ctx context.Context, request gen.TrainerPostEventsRequestObject) (gen.TrainerPostEventsResponseObject, error) {
+	raw, err := rawBody(ctx, request.Body)
+	if err != nil {
+		return nil, err
+	}
+	res, err := t.service.PostEvents(ctx, request.SessionId, raw)
+	if err != nil {
+		return nil, err
+	}
+	return eventsResponse{body: eventsBody{
+		Accepted: res.Accepted, Duplicates: res.Duplicates, ContiguousSeq: res.ContiguousSeq,
+		MissingSeqs: res.MissingSeqs, SessionStatus: gen.SessionStatus(res.Status), Reopened: res.Reopened, Note: res.Note,
+	}}, nil
+}
+
+func (t *Transport) TrainerFinishSession(ctx context.Context, request gen.TrainerFinishSessionRequestObject) (gen.TrainerFinishSessionResponseObject, error) {
+	raw, err := rawBody(ctx, request.Body)
+	if err != nil {
+		return nil, err
+	}
+	res, err := t.service.Finish(ctx, request.SessionId, raw)
+	if err != nil {
+		return nil, err
+	}
+	return resultResponse{body: toResultBody(res)}, nil
+}
+
+func (t *Transport) TrainerGetJudgeRetryPack(ctx context.Context, request gen.TrainerGetJudgeRetryPackRequestObject) (gen.TrainerGetJudgeRetryPackResponseObject, error) {
+	res, err := t.service.JudgeRetry(ctx, request.SessionId)
+	if err != nil {
+		return nil, err
+	}
+	return judgePackResponse{body: judgePackBody{
+		SessionID: res.SessionID, CriteriaSet: res.CriteriaSet, Transcript: toTranscript(res.Transcript),
+		JudgeDecisions: res.JudgeDecisions, OfferLog: res.OfferLog, CodeEpisodes: res.CodeEpisodes,
+		OpponentInterests: res.Interests, RevealedFacts: res.RevealedFacts, ParticipantBrief: res.Brief,
+		ModelAccess: gen.ModelAccess{OpenrouterKey: res.Access.OpenRouterKey, ModelServerToken: res.Access.ModelServerToken},
+		Profile:     toProfile(res.Access.Profile),
+	}}, nil
+}
+
+func (t *Transport) TrainerPostJudgeAnswer(ctx context.Context, request gen.TrainerPostJudgeAnswerRequestObject) (gen.TrainerPostJudgeAnswerResponseObject, error) {
+	raw, err := rawBody(ctx, request.Body)
+	if err != nil {
+		return nil, err
+	}
+	res, err := t.service.JudgeAnswer(ctx, request.SessionId, raw)
+	if err != nil {
+		return nil, err
+	}
+	return resultResponse{body: toResultBody(res)}, nil
+}
+
+// Ответы разговора — свои типы, как у старта (D-50): у сгенерированных
+// nullable-полей omitempty, и null из ответа пропадал бы.
+
+type eventsBody struct {
+	Accepted      int               `json:"accepted"`
+	Duplicates    int               `json:"duplicates"`
+	ContiguousSeq int               `json:"contiguous_seq"`
+	MissingSeqs   []int             `json:"missing_seqs"`
+	SessionStatus gen.SessionStatus `json:"session_status"`
+	Reopened      bool              `json:"reopened"`
+	Note          *string           `json:"note"`
+}
+
+type eventsResponse struct{ body eventsBody }
+
+func (r eventsResponse) VisitTrainerPostEventsResponse(w http.ResponseWriter) error {
+	return writeJSON(w, http.StatusOK, r.body)
+}
+
+type transcriptLine struct {
+	Seq     int             `json:"seq"`
+	ReplyNo int             `json:"reply_no"`
+	Speaker gen.Speaker     `json:"speaker"`
+	Text    *string         `json:"text"`
+	AtMs    int             `json:"at_ms"`
+	Offer   json.RawMessage `json:"offer"`
+	Terms   json.RawMessage `json:"terms"`
+}
+
+type judgePackBody struct {
+	SessionID         uuid.UUID                   `json:"session_id"`
+	CriteriaSet       string                      `json:"criteria_set"`
+	Transcript        []transcriptLine            `json:"transcript"`
+	JudgeDecisions    []json.RawMessage           `json:"judge_decisions"`
+	OfferLog          []json.RawMessage           `json:"offer_log"`
+	CodeEpisodes      []json.RawMessage           `json:"code_episodes"`
+	OpponentInterests json.RawMessage             `json:"opponent_interests"`
+	RevealedFacts     []FactText                  `json:"revealed_facts"`
+	ParticipantBrief  json.RawMessage             `json:"participant_brief"`
+	ModelAccess       gen.ModelAccess             `json:"model_access"`
+	Profile           gen.TrainerProfileForClient `json:"profile"`
+}
+
+type judgePackResponse struct{ body judgePackBody }
+
+func (r judgePackResponse) VisitTrainerGetJudgeRetryPackResponse(w http.ResponseWriter) error {
+	return writeJSON(w, http.StatusOK, r.body)
+}
+
+type headerBody struct {
+	SessionID        uuid.UUID         `json:"session_id"`
+	ScenarioID       uuid.UUID         `json:"scenario_id"`
+	ScenarioTitle    string            `json:"scenario_title"`
+	VersionNumber    int               `json:"version_number"`
+	Fingerprint      string            `json:"fingerprint"`
+	Difficulty       gen.Difficulty    `json:"difficulty"`
+	Mode             gen.Mode          `json:"mode"`
+	StartedAt        time.Time         `json:"started_at"`
+	EndedAt          *time.Time        `json:"ended_at"`
+	DurationMs       *int              `json:"duration_ms"`
+	ParticipantTurns int               `json:"participant_turns"`
+	Status           gen.SessionStatus `json:"status"`
+	ScoringProfile   *string           `json:"scoring_profile"`
+	CriteriaSet      string            `json:"criteria_set"`
+	IsDemo           bool              `json:"is_demo"`
+}
+
+// scoreColumnsBody — две оценки отдельными полями; общего числа нет
+// и не будет (FR-RS-04).
+type scoreColumnsBody struct {
+	ResultRank    *string         `json:"result_rank"`
+	FinalID       *string         `json:"final_id"`
+	FinalTitle    *string         `json:"final_title"`
+	ResultNumber  *int            `json:"result_number"`
+	ResultMax     *int            `json:"result_max"`
+	ProcessStatus string          `json:"process_status"`
+	ProcessNumber *int            `json:"process_number"`
+	CriteriaBands json.RawMessage `json:"criteria_bands"`
+	Lucky         bool            `json:"lucky"`
+}
+
+type markBody struct {
+	Kind    gen.MarkKind `json:"kind"`
+	Text    string       `json:"text"`
+	Replies []int        `json:"replies,omitempty"`
+}
+
+type resultBody struct {
+	Header           headerBody        `json:"header"`
+	Marks            []markBody        `json:"marks"`
+	ScoreColumns     scoreColumnsBody  `json:"score_columns"`
+	Issues           []json.RawMessage `json:"issues"`
+	HiddenUnrevealed int               `json:"hidden_unrevealed"`
+	Epilogue         *string           `json:"epilogue"`
+	Scores           json.RawMessage   `json:"scores"`
+	Summary          []json.RawMessage `json:"summary"`
+	Transcript       []transcriptLine  `json:"transcript"`
+	Objections       []json.RawMessage `json:"objections"`
+	CanRetryJudge    bool              `json:"can_retry_judge"`
+}
+
+type resultResponse struct{ body resultBody }
+
+func (r resultResponse) VisitTrainerFinishSessionResponse(w http.ResponseWriter) error {
+	return writeJSON(w, http.StatusOK, r.body)
+}
+
+func (r resultResponse) VisitTrainerPostJudgeAnswerResponse(w http.ResponseWriter) error {
+	return writeJSON(w, http.StatusOK, r.body)
+}
+
+func toResultBody(v ResultView) resultBody {
+	s := v.Session
+	marks := make([]markBody, 0, len(v.Marks))
+	for _, m := range v.Marks {
+		marks = append(marks, markBody{Kind: m.Kind, Text: m.Text, Replies: m.Replies})
+	}
+	return resultBody{
+		Header: headerBody{
+			SessionID: s.ID, ScenarioID: s.ScenarioID, ScenarioTitle: v.ScenarioTitle, VersionNumber: v.VersionNumber,
+			Fingerprint: v.Fingerprint, Difficulty: gen.Difficulty(s.Difficulty), Mode: gen.Mode(s.Mode),
+			StartedAt: s.StartedAt, EndedAt: s.EndedAt, DurationMs: durationMs(s.StartedAt, s.EndedAt),
+			ParticipantTurns: s.ParticipantTurns, Status: gen.SessionStatus(s.Status), ScoringProfile: s.ScoringProfile,
+			CriteriaSet: s.CriteriaSet, IsDemo: s.IsDemo,
+		},
+		Marks: marks,
+		ScoreColumns: scoreColumnsBody{
+			ResultRank: s.ResultRank, FinalID: s.FinalID, FinalTitle: s.FinalTitle, ResultNumber: s.ResultNumber,
+			ResultMax: s.ResultMax, ProcessStatus: s.ProcessStatus, ProcessNumber: s.ProcessNumber,
+			CriteriaBands: rawOrNull(s.CriteriaBands), Lucky: s.Lucky,
+		},
+		Issues: []json.RawMessage{}, Epilogue: v.Epilogue, Scores: rawOrNull(s.Scores), Summary: v.Summary,
+		Transcript: toTranscript(v.Transcript), Objections: []json.RawMessage{}, CanRetryJudge: v.CanRetryJudge,
+	}
+}
+
+func toTranscript(lines []TranscriptView) []transcriptLine {
+	out := make([]transcriptLine, 0, len(lines))
+	for _, l := range lines {
+		out = append(out, transcriptLine{
+			Seq: l.Seq, ReplyNo: l.ReplyNo, Speaker: gen.Speaker(l.Speaker), Text: l.Text, AtMs: l.AtMs,
+			Offer: rawOrNull(l.Offer), Terms: rawOrNull(l.Terms),
+		})
+	}
+	return out
+}
+
+// rawOrNull — пустой json.RawMessage при кодировании дал бы ошибку; нужен null.
+func rawOrNull(raw []byte) json.RawMessage {
+	if raw == nil {
+		return json.RawMessage("null")
+	}
+	return raw
 }

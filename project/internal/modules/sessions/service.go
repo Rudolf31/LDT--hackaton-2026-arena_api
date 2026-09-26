@@ -13,6 +13,7 @@ import (
 
 	"arena-portal-backend/internal/api/gen"
 	"arena-portal-backend/internal/modules/assignments"
+	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/consents"
 	"arena-portal-backend/internal/modules/people"
@@ -40,6 +41,7 @@ type service struct {
 	profiles profiles.Service
 	consents consents.Service
 	tokens   auth.TrainerTokens
+	audit    audit.Writer
 	now      func() time.Time
 }
 
@@ -440,24 +442,9 @@ func (s *service) resume(ctx context.Context, row sessionRow) (StartResult, erro
 	if err != nil {
 		return StartResult{}, err
 	}
-	person, err := s.people.Person(ctx, row.SubjectID)
-	if errors.Is(err, people.ErrKeyDestroyed) {
-		return StartResult{}, errWithdrawn()
-	}
+	acc, err := s.accessFor(ctx, row)
 	if err != nil {
 		return StartResult{}, err
-	}
-	allowed := row.ExternalAIAllowed && !person.ExternalAIWithdrawn
-	keys, err := s.profiles.SnapshotWithKeys(ctx, row.ProfileID, allowed)
-	if err != nil {
-		return StartResult{}, err
-	}
-	var settings gen.TrainerProfileSettings
-	if err := json.Unmarshal(row.ProfileSnapshot, &settings); err != nil {
-		return StartResult{}, fmt.Errorf("снимок профиля сессии: %w", err)
-	}
-	if !allowed {
-		settings.Openrouter = nil
 	}
 	doc, parts, err := document(version, gen.Difficulty(row.Difficulty))
 	if err != nil {
@@ -465,6 +452,42 @@ func (s *service) resume(ctx context.Context, row sessionRow) (StartResult, erro
 	}
 	return StartResult{
 		Session: row, Private: parts.Private, Document: doc,
+		Profile: acc.Profile, OpenRouterKey: acc.OpenRouterKey, ModelServerToken: acc.ModelServerToken,
+	}, nil
+}
+
+// access — профиль сессии и доступ к моделям для уже созданной сессии.
+type access struct {
+	Profile          ProfileSnapshot
+	OpenRouterKey    *string
+	ModelServerToken *string
+}
+
+// accessFor — настройки из снимка, с которым сессия началась (FR-PF-03),
+// ключи — текущие ключи профиля, OpenRouter — только если согласие на
+// внешнюю нейросеть было дано и не отозвано (FR-AC-07). Отзыв основного
+// согласия — 410: разговора больше нет.
+func (s *service) accessFor(ctx context.Context, row sessionRow) (access, error) {
+	person, err := s.people.Person(ctx, row.SubjectID)
+	if errors.Is(err, people.ErrKeyDestroyed) {
+		return access{}, errWithdrawn()
+	}
+	if err != nil {
+		return access{}, err
+	}
+	allowed := row.ExternalAIAllowed && !person.ExternalAIWithdrawn
+	keys, err := s.profiles.SnapshotWithKeys(ctx, row.ProfileID, allowed)
+	if err != nil {
+		return access{}, err
+	}
+	var settings gen.TrainerProfileSettings
+	if err := json.Unmarshal(row.ProfileSnapshot, &settings); err != nil {
+		return access{}, fmt.Errorf("снимок профиля сессии: %w", err)
+	}
+	if !allowed {
+		settings.Openrouter = nil
+	}
+	return access{
 		Profile:       ProfileSnapshot{ProfileID: row.ProfileID, Revision: row.ProfileRevision, Settings: settings},
 		OpenRouterKey: keys.OpenRouterKey, ModelServerToken: keys.ModelServerToken,
 	}, nil

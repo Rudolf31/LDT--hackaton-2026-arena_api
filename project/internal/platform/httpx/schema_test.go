@@ -98,3 +98,35 @@ func TestPatchedCreateFromBriefSchema(t *testing.T) {
 		t.Fatalf("без title (обязательного в подменённой схеме) должно отклоняться: %d, %s", rec.Code, rec.Body.String())
 	}
 }
+
+// TestPatchedJudgeAnswerRequestSchema — D-62: к ответу судьи добавлен
+// обязательный блок оценок client_scores; остальные лишние поля
+// по-прежнему отклоняются.
+func TestPatchedJudgeAnswerRequestSchema(t *testing.T) {
+	schemas, err := LoadBodySchemas(arenaapi.Spec, 1<<20, nil)
+	if err != nil {
+		t.Fatalf("LoadBodySchemas: %v", err)
+	}
+	mw := Body(schemas)
+
+	post := func(body string) *httptest.ResponseRecorder {
+		next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost,
+			"/api/trainer/sessions/7d3f2c9e-0000-4000-8000-000000000001/judge-answer", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		mw(next).ServeHTTP(rec, req)
+		return rec
+	}
+	answer := `{"criteria_set":"harvard_spin_v1","episodes":[],"summary":[]}`
+
+	if rec := post(`{"judge_answer":` + answer + `,"judge_attempts":2,"client_scores":{"criteria_set":"harvard_spin_v1"}}`); rec.Code != http.StatusOK {
+		t.Fatalf("тело с блоком оценок должно пройти: %d, %s", rec.Code, rec.Body.String())
+	}
+	if rec := post(`{"judge_answer":` + answer + `,"judge_attempts":2}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("без client_scores должно отклоняться: %d", rec.Code)
+	}
+	if rec := post(`{"judge_answer":` + answer + `,"judge_attempts":2,"client_scores":{},"extra":1}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("лишнее поле должно отклоняться: %d", rec.Code)
+	}
+}

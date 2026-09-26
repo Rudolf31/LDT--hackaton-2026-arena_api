@@ -24,6 +24,7 @@ import (
 	"arena-portal-backend/internal/modules/consents"
 	"arena-portal-backend/internal/modules/demo"
 	"arena-portal-backend/internal/modules/generation"
+	"arena-portal-backend/internal/modules/jobs"
 	"arena-portal-backend/internal/modules/people"
 	"arena-portal-backend/internal/modules/profiles"
 	"arena-portal-backend/internal/modules/scenarios"
@@ -108,6 +109,7 @@ func run() error {
 // buildApp собирает модули и роутер и делает первичную заливку. Вынесена
 // из run, чтобы интеграционные тесты собирали портал тем же кодом.
 func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger *slog.Logger) (http.Handler, error) {
+	portalStartedAt := time.Now()
 	bodySchemas, err := httpx.LoadBodySchemas(arenaapi.Spec, maxBodyBytesDefault, maxBodyBytesByOperationID)
 	if err != nil {
 		return nil, fmt.Errorf("загрузка схем тел из контракта: %w", err)
@@ -149,6 +151,7 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	sessionsModule := sessions.New(pool, sessions.Deps{
 		Entry: assignmentsModule.Entry(), Versions: scenariosModule.Versions(), People: peopleModule.Service(),
 		Profiles: profilesModule.Service(), Consents: consentsModule.Service(), Tokens: authModule.TrainerTokens(),
+		Audit: auditModule,
 	})
 	cancellerRef.target = assignmentsModule.Canceller()
 	audienceRef.target = sessionsModule.Audience()
@@ -179,6 +182,12 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	if err := generationModule.Recover(ctx); err != nil {
 		return nil, fmt.Errorf("закрытие зависших заданий авторства при старте: %w", err)
 	}
+
+	// Закрытие брошенных сессий раз в минуту (этап 08, архитектура 7.3).
+	// Таймаут считается не раньше, чем от запуска процесса: время
+	// недоступности портала в него не входит (FR-ST-03).
+	jobsModule := jobs.New(sessionsModule.Closer(), settingsModule.Service(), logger, portalStartedAt)
+	go jobsModule.Run(ctx)
 
 	baseline, err := demoModule.EnsureBaseline(ctx)
 	if err != nil {

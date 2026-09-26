@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"arena-portal-backend/internal/modules/assignments"
+	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/consents"
 	"arena-portal-backend/internal/modules/people"
@@ -25,6 +26,7 @@ type Deps struct {
 	Profiles profiles.Service
 	Consents consents.Service
 	Tokens   auth.TrainerTokens
+	Audit    audit.Writer
 }
 
 type Module struct {
@@ -35,7 +37,7 @@ type Module struct {
 func New(pool *pgxpool.Pool, d Deps) *Module {
 	svc := &service{
 		pool: pool, store: newStore(), entry: d.Entry, versions: d.Versions, people: d.People,
-		profiles: d.Profiles, consents: d.Consents, tokens: d.Tokens, now: time.Now,
+		profiles: d.Profiles, consents: d.Consents, tokens: d.Tokens, audit: d.Audit, now: time.Now,
 	}
 	return &Module{Transport: &Transport{service: svc}, service: svc}
 }
@@ -51,3 +53,6 @@ func (m *Module) VersionCounts() scenarios.VersionSessionCounter { return m.serv
 
 // Running — идущие сессии по профилю тренажёра (profiles).
 func (m *Module) Running() profiles.SessionCounter { return m.service }
+
+// Closer — закрытие брошенных сессий для задания jobs (архитектура 7.3).
+func (m *Module) Closer() Closer { return m.service }

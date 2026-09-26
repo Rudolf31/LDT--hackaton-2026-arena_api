@@ -226,6 +226,23 @@ func patchOutdatedSchemas(doc map[string]any) {
 	if !ok {
 		return
 	}
+	// D-62: оценки считает клиент, и повторный ответ судьи приходит вместе
+	// с пересчитанным им блоком оценок — иначе «процессу» неоткуда взять
+	// число (sessions_process_number). Контракт знает только ответ судьи и
+	// число запросов; схема закрыта так же, как в arena-api.yaml. Форму
+	// блока проверяет sessions/scores.go.
+	if _, ok := schemas["JudgeAnswerRequest"]; ok {
+		schemas["JudgeAnswerRequest"] = map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []any{"judge_answer", "judge_attempts", "client_scores"},
+			"properties": map[string]any{
+				"judge_answer":   map[string]any{"$ref": "#/components/schemas/JudgeAnswer"},
+				"judge_attempts": map[string]any{"type": "integer", "minimum": 1},
+				"client_scores":  map[string]any{"$ref": "#/components/schemas/EngineObject"},
+			},
+		}
+	}
 	if _, ok := schemas["CreateFromBrief"]; !ok {
 		return
 	}

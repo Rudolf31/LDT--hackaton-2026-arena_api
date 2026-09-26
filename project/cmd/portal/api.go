@@ -293,19 +293,19 @@ func (a *api) TrainerGetPrivatePart(ctx context.Context, request gen.TrainerGetP
 }
 
 func (a *api) TrainerPostEvents(ctx context.Context, request gen.TrainerPostEventsRequestObject) (gen.TrainerPostEventsResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerPostEvents(ctx, request)
 }
 
 func (a *api) TrainerFinishSession(ctx context.Context, request gen.TrainerFinishSessionRequestObject) (gen.TrainerFinishSessionResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerFinishSession(ctx, request)
 }
 
 func (a *api) TrainerGetJudgeRetryPack(ctx context.Context, request gen.TrainerGetJudgeRetryPackRequestObject) (gen.TrainerGetJudgeRetryPackResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerGetJudgeRetryPack(ctx, request)
 }
 
 func (a *api) TrainerPostJudgeAnswer(ctx context.Context, request gen.TrainerPostJudgeAnswerRequestObject) (gen.TrainerPostJudgeAnswerResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerPostJudgeAnswer(ctx, request)
 }
 
 // --- results (этап 09) ---
