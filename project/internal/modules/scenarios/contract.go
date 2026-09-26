@@ -34,6 +34,22 @@ type VersionInfo struct {
 	Sphere          gen.Sphere
 	NegotiationType gen.NegotiationType
 	Document        json.RawMessage
+	// ScenarioArchived — сценарий версии в архиве: новых назначений на
+	// него не делают (arena-api.yaml, createAssignments: «Архивный
+	// сценарий — 409»).
+	ScenarioArchived bool
+}
+
+// VersionBrief — версия без документа, для списка назначений: номер,
+// режим, название и есть ли у сценария версия новее (FR-AC-01: назначение
+// на новую версию не переезжает, экран только показывает, что она есть).
+type VersionBrief struct {
+	ID          uuid.UUID
+	ScenarioID  uuid.UUID
+	Number      int
+	Mode        gen.Mode
+	Title       string
+	NewerExists bool
 }
 
 // Versions — то, что другие модули видят о версиях сценария (CLAUDE.md,
@@ -41,6 +57,12 @@ type VersionInfo struct {
 // сессий (04-scenarios.md, задача «Версии»).
 type Versions interface {
 	Version(ctx context.Context, id uuid.UUID) (VersionInfo, error)
+	// Briefs — версии по номерам без документа; неизвестные номера в
+	// карте отсутствуют.
+	Briefs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]VersionBrief, error)
+	// VersionIDs — все опубликованные версии сценария, для фильтра
+	// списка назначений по сценарию.
+	VersionIDs(ctx context.Context, scenarioID uuid.UUID) ([]uuid.UUID, error)
 }
 
 // RehearsalCounter — сколько прошедших репетиций у сценария есть ровно на

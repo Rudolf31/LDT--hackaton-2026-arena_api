@@ -274,3 +274,27 @@ func mapWriteError(err error, what string) error {
 	}
 	return fmt.Errorf("%s: %w", what, err)
 }
+
+func (s *store) names(ctx context.Context, q querier, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := make(map[uuid.UUID]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := q.Query(ctx, `SELECT id, name FROM trainer_profiles_public WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("названия профилей тренажёра: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, fmt.Errorf("названия профилей тренажёра: %w", err)
+		}
+		out[id] = name
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("названия профилей тренажёра: %w", err)
+	}
+	return out, nil
+}

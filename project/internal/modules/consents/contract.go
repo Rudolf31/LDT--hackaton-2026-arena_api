@@ -91,6 +91,19 @@ type Service interface {
 	// для сессии: не отказ, у письменного — срок не истёк. Для экранных
 	// видов assignmentID сужает поиск до ответа перед этим назначением.
 	Usable(ctx context.Context, subjectID uuid.UUID, assignmentID *uuid.UUID, kind gen.ConsentKind) (uuid.UUID, bool, error)
+	// Records — записи по номерам, для разбора consent_ids при старте
+	// сессии; неизвестные номера в ответ не попадают.
+	Records(ctx context.Context, ids []uuid.UUID) ([]RecordInfo, error)
+}
+
+// RecordInfo — запись согласия без текста: чья, перед каким назначением,
+// какого вида и годится ли основанием для сессии (не отказ).
+type RecordInfo struct {
+	ID           uuid.UUID
+	SubjectID    uuid.UUID
+	AssignmentID *uuid.UUID
+	Kind         gen.ConsentKind
+	Usable       bool
 }
 
 // AudienceResolver — интерфейс потребителя: по участнику тренажёра из

@@ -159,7 +159,7 @@ func (s *service) Record(ctx context.Context, a Audience, answers []Answer) (Out
 			return Outcome{}, fieldError(path+"/answer", "Такой ответ на этот текст невозможен.")
 		}
 	}
-	main := mainKind(a.Mode, a.Demo)
+	main := MainKind(a.Mode, a.Demo)
 	if !seen[main] {
 		return Outcome{}, fieldError("/answers", "Нет ответа на основной текст экрана.")
 	}
@@ -225,6 +225,10 @@ func (s *service) Usable(ctx context.Context, subjectID uuid.UUID, assignmentID 
 		return uuid.Nil, false, err
 	}
 	return id, true, nil
+}
+
+func (s *service) Records(ctx context.Context, ids []uuid.UUID) ([]RecordInfo, error) {
+	return s.store.recordInfos(ctx, s.pool, ids)
 }
 
 // --- письменное согласие ---

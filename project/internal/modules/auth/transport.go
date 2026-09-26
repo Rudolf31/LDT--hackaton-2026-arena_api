@@ -2,26 +2,38 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"math"
 	"net"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"arena-portal-backend/internal/api/gen"
 	"arena-portal-backend/internal/platform/actor"
 	"arena-portal-backend/internal/platform/httpx"
+	"arena-portal-backend/internal/platform/ratelimit"
 )
 
 // Transport — адреса /api/portal/auth/* и /api/portal/users/*, плюс strict
 // middleware, через которое проходит каждая операция контракта.
 type Transport struct {
-	service *service
-	cookies *sessionCodec
-	access  map[string]httpx.OperationAccess
-	demo    bool
+	service      *service
+	cookies      *sessionCodec
+	access       map[string]httpx.OperationAccess
+	demo         bool
+	tokens       *trainerTokens
+	codeLimiter  *ratelimit.Limiter
+	tokenLimiter *ratelimit.Limiter
 }
+
+// trainerEnterOperation — ввод кода: единственный публичный адрес с
+// пределом по адресу клиента (10 в минуту, arena-portal-hr.md 8.1).
+const trainerEnterOperation = "TrainerEnter"
 
 // requestState — то, что middleware передаёт обработчику и забирает
 // обратно: адрес клиента для предела частоты входа и cookie, которую
@@ -58,13 +70,21 @@ func (t *Transport) Middleware(next gen.StrictHandlerFunc, operation string) gen
 		ctx = context.WithValue(ctx, stateKey{}, state)
 
 		if access.Allows(httpx.RolePublic) {
+			if operation == trainerEnterOperation {
+				if err := allow(t.codeLimiter, state.clientAddr, "Слишком много попыток ввода кода. Подождите минуту."); err != nil {
+					return nil, err
+				}
+			}
 			resp, err := next(ctx, w, r, request)
 			applyCookie(w, state)
 			return resp, err
 		}
 		if !portalOperation(access) {
-			// Адреса клиента-тренажёра входят по токену — этапы 07, 10, 11.
-			return nil, httpx.NotImplemented()
+			ctx, err := t.authorizeTrainer(ctx, r, access)
+			if err != nil {
+				return nil, err
+			}
+			return next(ctx, w, r, request)
 		}
 
 		ctx, err := t.authorizeRoles(ctx, w, r, access.Roles, operation)
@@ -75,6 +95,43 @@ func (t *Transport) Middleware(next gen.StrictHandlerFunc, operation string) gen
 		applyCookie(w, state)
 		return resp, err
 	}
+}
+
+// authorizeTrainer — адреса клиента-тренажёра: подписанный токен из
+// заголовка Authorization, вид токена из x-roles операции, предел 30
+// запросов в минуту на токен (D-56). Права по назначению проверяет
+// служба по базе на каждом запросе — токен говорит только, кто пришёл.
+func (t *Transport) authorizeTrainer(ctx context.Context, r *http.Request, access httpx.OperationAccess) (context.Context, error) {
+	raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || strings.TrimSpace(raw) == "" {
+		return ctx, httpx.NewError(httpx.KindUnauthenticated, "Откройте тренажёр по коду доступа.")
+	}
+	claims, err := t.tokens.Verify(strings.TrimSpace(raw))
+	if err != nil {
+		return ctx, httpx.NewError(httpx.KindUnauthenticated, "Время входа истекло — введите код заново.")
+	}
+	if !access.Allows(string(claims.Kind)) {
+		return ctx, httpx.NewError(httpx.KindForbiddenRole, "Этот адрес недоступен с вашим входом в тренажёр.")
+	}
+	sum := sha256.Sum256([]byte(raw))
+	if err := allow(t.tokenLimiter, hex.EncodeToString(sum[:]), "Слишком много запросов. Подождите минуту."); err != nil {
+		return ctx, err
+	}
+	return actor.WithTrainer(ctx, actor.Trainer{
+		Kind: string(claims.Kind), SubjectID: claims.SubjectID, AssignmentID: claims.AssignmentID,
+		CodeID: claims.CodeID, DemoGuestID: claims.DemoGuestID,
+	}), nil
+}
+
+// allow — 429 с Retry-After, если предел исчерпан; nil limiter — без предела.
+func allow(l *ratelimit.Limiter, key, title string) error {
+	if l == nil {
+		return nil
+	}
+	if ok, retryAfter := l.Allow(key); !ok {
+		return httpx.NewError(httpx.KindRateLimited, title).WithRetryAfter(int(math.Ceil(retryAfter.Seconds())))
+	}
+	return nil
 }
 
 // authorizeRoles — вход и проверка роли, общие для strict-middleware

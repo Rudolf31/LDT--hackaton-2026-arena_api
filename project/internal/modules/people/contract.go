@@ -33,6 +33,26 @@ type Service interface {
 	// согласия связи «номер → человек» нет — ErrKeyDestroyed; нет номера —
 	// ErrSubjectNotFound.
 	Person(ctx context.Context, subjectID uuid.UUID) (PersonFacts, error)
+	// PersonRefs — номера и имена пачки участников одним запросом
+	// (назначение на группу — до 500 человек). Неизвестный номер в карте
+	// отсутствует; после отзыва согласия есть только номер.
+	PersonRefs(ctx context.Context, subjectIDs []uuid.UUID) (map[uuid.UUID]PersonRef, error)
+	// GroupProfile — профиль тренажёра, выбранный у группы; nil — у группы
+	// своего профиля нет и действует профиль по умолчанию (FR-PF-02).
+	GroupProfile(ctx context.Context, groupID uuid.UUID) (*uuid.UUID, error)
+}
+
+// PersonRef — участник для экранов назначений: номер и, пока связь
+// «номер → человек» есть, ФИО или псевдоним и текущая группа. Имя — для
+// экрана, не для журнала и лога (CLAUDE.md, правило 5).
+type PersonRef struct {
+	SubjectID   uuid.UUID
+	Number      string
+	Present     bool // false — согласие отозвано, связи с человеком нет
+	GroupID     uuid.UUID
+	DisplayName *string
+	IsPseudonym bool
+	HasFullName bool
 }
 
 // PersonFacts — сведения о сотруднике для других модулей. Имя отсюда идёт

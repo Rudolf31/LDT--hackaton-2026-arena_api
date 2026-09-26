@@ -828,12 +828,24 @@ func (s *service) Version(ctx context.Context, id uuid.UUID) (VersionInfo, error
 	if err != nil {
 		return VersionInfo{}, err
 	}
+	archived, err := s.store.scenarioArchived(ctx, s.pool, v.ScenarioID)
+	if err != nil {
+		return VersionInfo{}, err
+	}
 	return VersionInfo{
 		ID: v.ID, ScenarioID: v.ScenarioID, Number: v.Number, Mode: gen.Mode(v.Mode),
 		Fingerprint: v.Fingerprint, Format: v.Format, EngineVersion: v.EngineVersion,
 		Title: v.Title, Sphere: gen.Sphere(v.Sphere), NegotiationType: gen.NegotiationType(v.NegotiationType),
-		Document: v.Document,
+		Document: v.Document, ScenarioArchived: archived,
 	}, nil
+}
+
+func (s *service) Briefs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]VersionBrief, error) {
+	return s.store.versionBriefs(ctx, s.pool, ids)
+}
+
+func (s *service) VersionIDs(ctx context.Context, scenarioID uuid.UUID) ([]uuid.UUID, error) {
+	return s.store.versionIDs(ctx, s.pool, scenarioID)
 }
 
 // --- Authoring (контракт наружу для generation, этап 05) ---

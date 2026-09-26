@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
+	"arena-portal-backend/internal/api/gen"
 	"arena-portal-backend/internal/platform/pg"
 )
 
@@ -456,4 +457,53 @@ func (s *store) versionByID(ctx context.Context, q querier, id uuid.UUID) (versi
 		return versionRow{}, fmt.Errorf("чтение версии сценария: %w", err)
 	}
 	return r, nil
+}
+
+func (s *store) scenarioArchived(ctx context.Context, q querier, id uuid.UUID) (bool, error) {
+	var archived bool
+	if err := q.QueryRow(ctx, `SELECT archived_at IS NOT NULL FROM scenarios WHERE id = $1`, id).Scan(&archived); err != nil {
+		return false, fmt.Errorf("чтение сценария версии: %w", err)
+	}
+	return archived, nil
+}
+
+func (s *store) versionBriefs(ctx context.Context, q querier, ids []uuid.UUID) (map[uuid.UUID]VersionBrief, error) {
+	out := make(map[uuid.UUID]VersionBrief, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := q.Query(ctx, `
+		SELECT v.id, v.scenario_id, v.number, v.mode, v.title,
+		       EXISTS (SELECT 1 FROM scenario_versions n WHERE n.scenario_id = v.scenario_id AND n.number > v.number)
+		FROM scenario_versions v
+		WHERE v.id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("чтение версий сценариев: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var b VersionBrief
+		var mode string
+		if err := rows.Scan(&b.ID, &b.ScenarioID, &b.Number, &mode, &b.Title, &b.NewerExists); err != nil {
+			return nil, fmt.Errorf("чтение версий сценариев: %w", err)
+		}
+		b.Mode = gen.Mode(mode)
+		out[b.ID] = b
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("чтение версий сценариев: %w", err)
+	}
+	return out, nil
+}
+
+func (s *store) versionIDs(ctx context.Context, q querier, scenarioID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.Query(ctx, `SELECT id FROM scenario_versions WHERE scenario_id = $1`, scenarioID)
+	if err != nil {
+		return nil, fmt.Errorf("версии сценария: %w", err)
+	}
+	ids, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		return nil, fmt.Errorf("версии сценария: %w", err)
+	}
+	return ids, nil
 }

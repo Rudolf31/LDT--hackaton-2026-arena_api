@@ -367,3 +367,41 @@ func idMap(ctx context.Context, q querier, sql string, ids []uuid.UUID, what str
 	}
 	return out, nil
 }
+
+func (s *store) personRefs(ctx context.Context, q querier, ids []uuid.UUID) (map[uuid.UUID]PersonRef, error) {
+	out := make(map[uuid.UUID]PersonRef, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := q.Query(ctx, `
+		SELECT s.id, s.number, p.subject_id IS NOT NULL, p.group_id, p.full_name, p.pseudonym
+		FROM subjects s
+		LEFT JOIN people p ON p.subject_id = s.id
+		WHERE s.id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("чтение участников: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r PersonRef
+		var groupID *uuid.UUID
+		var fullName, pseudonym *string
+		if err := rows.Scan(&r.SubjectID, &r.Number, &r.Present, &groupID, &fullName, &pseudonym); err != nil {
+			return nil, fmt.Errorf("чтение участников: %w", err)
+		}
+		if groupID != nil {
+			r.GroupID = *groupID
+		}
+		switch {
+		case fullName != nil:
+			r.DisplayName, r.HasFullName = fullName, true
+		case pseudonym != nil:
+			r.DisplayName, r.IsPseudonym = pseudonym, true
+		}
+		out[r.SubjectID] = r
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("чтение участников: %w", err)
+	}
+	return out, nil
+}

@@ -19,6 +19,10 @@ const keyLengthBytes = 32
 // документа сценария, если ARENA_GEN_URL не задан (D-35).
 const defaultGenURL = "https://openrouter.ai/api/v1"
 
+// defaultTrainerURL — адрес клиента-тренажёра, из которого строится ссылка
+// на код доступа, если ARENA_TRAINER_URL не задан (D-53).
+const defaultTrainerURL = "http://localhost:5173"
+
 type Config struct {
 	DatabaseURL string
 	// MasterKey и CodeHMACSecret — уже декодированные из base64, ровно 32 байта
@@ -44,6 +48,10 @@ type Config struct {
 	// только на стенде без TLS: по обычному http браузер такую cookie не
 	// вернёт, и вход молча не сработает.
 	CookieSecure bool
+
+	// TrainerURL — адрес клиента-тренажёра без завершающей косой черты;
+	// ссылка на код — TrainerURL + "/t?code=…" (D-53).
+	TrainerURL string
 
 	// StartedAt — момент запуска процесса. Используется job'ом закрытия
 	// брошенных сессий (arena-portal-backend-architecture.md 7.3): время
@@ -106,6 +114,7 @@ func Load() (Config, error) {
 		DemoModelKeys: orDefaultBool("DEMO_MODEL_KEYS", false),
 		LogLevel:      orDefault("ARENA_LOG_LEVEL", "info"),
 		CookieSecure:  orDefaultBool("ARENA_COOKIE_SECURE", true),
+		TrainerURL:    strings.TrimRight(orDefault("ARENA_TRAINER_URL", defaultTrainerURL), "/"),
 
 		StartedAt: startedAt,
 	}
@@ -156,8 +165,8 @@ func (c Config) STTConfigured() bool {
 // секретов, только то, что влияет на поведение.
 func (c Config) Describe() string {
 	return fmt.Sprintf(
-		"демо-режим=%v, ключи демо-гостям=%v, генерация сценария настроена=%v, расшифровка речи настроена=%v, cookie Secure=%v, адрес=%s",
-		c.Demo, c.DemoModelKeys, c.GenConfigured(), c.STTConfigured(), c.CookieSecure, c.Listen,
+		"демо-режим=%v, ключи демо-гостям=%v, генерация сценария настроена=%v, расшифровка речи настроена=%v, cookie Secure=%v, адрес=%s, тренажёр=%s",
+		c.Demo, c.DemoModelKeys, c.GenConfigured(), c.STTConfigured(), c.CookieSecure, c.Listen, c.TrainerURL,
 	)
 }
 

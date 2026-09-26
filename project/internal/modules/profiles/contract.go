@@ -59,6 +59,11 @@ type Service interface {
 	DefaultID(ctx context.Context) (uuid.UUID, error)
 	Effective(ctx context.Context, id uuid.UUID) (Effective, error)
 	SnapshotWithKeys(ctx context.Context, id uuid.UUID, externalAIAllowed bool) (Snapshot, error)
+	// ForClient — то же, что SnapshotWithKeys, но без ключей и без их
+	// расшифровки: настройки для входа по коду, до согласия (FR-PF-02).
+	ForClient(ctx context.Context, id uuid.UUID, externalAIAllowed bool) (Snapshot, error)
+	// Names — названия профилей для экранов; неизвестные в карте отсутствуют.
+	Names(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 // ProfileWithKeys — профиль для проверки: итоговые настройки и ключи.

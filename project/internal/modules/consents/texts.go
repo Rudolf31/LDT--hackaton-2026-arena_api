@@ -50,9 +50,9 @@ var titles = map[gen.ConsentKind]string{
 	gen.ConsentKindNoticeDemo:        "Уведомление перед демонстрацией",
 }
 
-// mainKind — основной текст экрана по режиму: уведомление в тренировке и
+// MainKind — основной текст экрана по режиму: уведомление в тренировке и
 // демо, согласие в оценке (FR-AC-06, FR-AC-13).
-func mainKind(mode gen.Mode, demo bool) gen.ConsentKind {
+func MainKind(mode gen.Mode, demo bool) gen.ConsentKind {
 	switch {
 	case demo:
 		return gen.ConsentKindNoticeDemo
@@ -88,7 +88,7 @@ func buildScreen(in screenInput) (Screen, error) {
 		s.Variant = gen.ConsentScreenVariantB
 	}
 
-	kinds := []gen.ConsentKind{mainKind(in.Mode, in.Demo)}
+	kinds := []gen.ConsentKind{MainKind(in.Mode, in.Demo)}
 	if openRouter {
 		kinds = append(kinds, gen.ConsentKindConsentExternalAi)
 	}

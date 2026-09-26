@@ -59,7 +59,7 @@ func newFixture(t *testing.T) fixture {
 
 	auditModule := audit.New()
 	authModule, err := auth.New(pool, auditModule, auth.Config{HMACSecret: bytes.Repeat([]byte{2}, 32)},
-		ratelimit.NewLimiters().PortalLogin, map[string]httpx.OperationAccess{})
+		auth.Limiters{PortalLogin: ratelimit.NewLimiters().PortalLogin}, map[string]httpx.OperationAccess{})
 	if err != nil {
 		t.Fatal(err)
 	}

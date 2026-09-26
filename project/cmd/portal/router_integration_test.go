@@ -64,6 +64,7 @@ func testConfig() config.Config {
 		CodeHMACSecret: bytes.Repeat([]byte{2}, 32),
 		Demo:           true,
 		CookieSecure:   true,
+		TrainerURL:     "http://trainer.test",
 	}
 }
 
@@ -138,8 +139,8 @@ func expectStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
 
 func TestRouterUnimplementedOperationAnswers501(t *testing.T) {
 	e := newTestEnv(t)
-	// /trainer-profiles живёт с этапа 06; /assignments остаётся 501 до этапа 07.
-	rec := e.do(http.MethodGet, "/api/portal/assignments", "", e.login(adminLogin, adminPassword))
+	// /assignments живёт с этапа 07; список сессий остаётся 501 до этапа 09.
+	rec := e.do(http.MethodGet, "/api/portal/sessions", "", e.login(adminLogin, adminPassword))
 	expectStatus(t, rec, http.StatusNotImplemented)
 	if problem := decode[map[string]any](t, rec); problem["title"] == "" {
 		t.Fatal("title не должен быть пустым")

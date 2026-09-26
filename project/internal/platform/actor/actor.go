@@ -39,7 +39,10 @@ type Trainer struct {
 	Kind         string
 	SubjectID    *uuid.UUID
 	AssignmentID *uuid.UUID
-	DemoGuestID  *uuid.UUID
+	// CodeID — код доступа, по которому выдан токен участника: перевыпуск
+	// кода закрывает новые старты по старому токену (D-55).
+	CodeID      *uuid.UUID
+	DemoGuestID *uuid.UUID
 }
 
 type trainerKey struct{}

@@ -39,6 +39,7 @@ services:
       DEMO_MODEL_KEYS: ${DEMO_MODEL_KEYS:-false}
       ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-info}
       ARENA_COOKIE_SECURE: ${ARENA_COOKIE_SECURE:-true}
+      ARENA_TRAINER_URL: ${ARENA_TRAINER_URL:-}
     ports:
       - "8080:8080"
     depends_on:

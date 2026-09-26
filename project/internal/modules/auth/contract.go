@@ -80,6 +80,7 @@ type TrainerClaims struct {
 	Kind         TrainerTokenKind `json:"k"`
 	AssignmentID *uuid.UUID       `json:"a,omitempty"`
 	SubjectID    *uuid.UUID       `json:"s,omitempty"`
+	CodeID       *uuid.UUID       `json:"c,omitempty"`
 	DemoGuestID  *uuid.UUID       `json:"g,omitempty"`
 	RehearsalID  *uuid.UUID       `json:"r,omitempty"`
 	ExpiresAt    time.Time        `json:"e"`
@@ -91,7 +92,8 @@ var (
 )
 
 // TrainerTokens выпускает и проверяет подписанные токены участника, гостя
-// демо и репетиции. Адреса, которые их выдают, появляются в этапах 07, 10, 11.
+// демо и репетиции. Токен участника выдаёт вход по коду (sessions, этап
+// 07); гостя и репетиции — этапы 11 и 10.
 type TrainerTokens interface {
 	Issue(c TrainerClaims) (string, error)
 	Verify(token string) (TrainerClaims, error)

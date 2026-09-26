@@ -543,6 +543,18 @@ func (s *service) Person(ctx context.Context, subjectID uuid.UUID) (PersonFacts,
 
 // --- Provisioner ---
 
+func (s *service) PersonRefs(ctx context.Context, subjectIDs []uuid.UUID) (map[uuid.UUID]PersonRef, error) {
+	return s.store.personRefs(ctx, s.pool, subjectIDs)
+}
+
+func (s *service) GroupProfile(ctx context.Context, groupID uuid.UUID) (*uuid.UUID, error) {
+	g, err := s.store.group(ctx, s.pool, groupID)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return g.TrainerProfileID, nil
+}
+
 func (s *service) CreateGroupTx(ctx context.Context, tx pgx.Tx, g NewGroup, actorID *uuid.UUID) (uuid.UUID, error) {
 	id, err := s.createGroupTx(ctx, tx, g, nil, actorID)
 	return id, mapError(err)

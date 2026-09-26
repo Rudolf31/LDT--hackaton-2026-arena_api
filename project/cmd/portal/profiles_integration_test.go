@@ -133,7 +133,7 @@ func TestProviderKeysNeverLeakToPortal(t *testing.T) {
 	}
 
 	// Снимок для тренажёра: без согласия — ни адреса, ни ключа OpenRouter.
-	svc := profiles.New(e.pool, audit.New(), testConfig().MasterKey, nil, noRunningSessionsYet{}).Service()
+	svc := profiles.New(e.pool, audit.New(), testConfig().MasterKey, nil, noRunningSessions{}).Service()
 	id := uuid.MustParse(def.ID)
 	without, err := svc.SnapshotWithKeys(context.Background(), id, false)
 	if err != nil {
@@ -215,7 +215,7 @@ func TestProfileCreateCopyPatchAndSettingsRules(t *testing.T) {
 		t.Fatalf("строк profile_saved: %d", n)
 	}
 
-	svc := profiles.New(e.pool, audit.New(), testConfig().MasterKey, nil, noRunningSessionsYet{}).Service()
+	svc := profiles.New(e.pool, audit.New(), testConfig().MasterKey, nil, noRunningSessions{}).Service()
 	eff, err := svc.Effective(context.Background(), uuid.MustParse(short.ID))
 	if err != nil {
 		t.Fatal(err)
@@ -336,10 +336,16 @@ func TestWrittenConsentNeedsGroupAccessAndIsJournaled(t *testing.T) {
 	expectStatus(t, e.do(http.MethodPost, "/api/portal/people/"+person.SubjectID+"/written-consents", bad, admin), http.StatusUnprocessableEntity)
 }
 
-func TestTrainerConsentsWaitForTrainerToken(t *testing.T) {
+func TestTrainerConsentsNeedTrainerToken(t *testing.T) {
 	e := newTestEnv(t)
-	// Вход по токену тренажёра появляется в этапе 07 (D-48).
+	// Без токена участника (этап 07) ответ на согласие не принимается.
 	rec := e.do(http.MethodPost, "/api/trainer/consents",
 		`{"answers":[{"kind":"notice_training","answer":"acknowledged","text_id":"`+uuid.NewString()+`","shown_text_sha256":"`+strings.Repeat("a", 64)+`"}]}`, nil)
-	expectStatus(t, rec, http.StatusNotImplemented)
+	expectStatus(t, rec, http.StatusUnauthorized)
 }
+
+// noRunningSessions — профиль, собранный в тесте отдельно от портала:
+// идущих сессий у него нет.
+type noRunningSessions struct{}
+
+func (noRunningSessions) RunningByProfile(context.Context, uuid.UUID) (int, error) { return 0, nil }

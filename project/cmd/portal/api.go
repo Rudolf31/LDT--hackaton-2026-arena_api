@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"arena-portal-backend/internal/api/gen"
+	"arena-portal-backend/internal/modules/assignments"
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/consents"
@@ -11,6 +12,7 @@ import (
 	"arena-portal-backend/internal/modules/people"
 	"arena-portal-backend/internal/modules/profiles"
 	"arena-portal-backend/internal/modules/scenarios"
+	"arena-portal-backend/internal/modules/sessions"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/httpx"
 )
@@ -29,14 +31,16 @@ import (
 // модуль). У модуля, для которого этап ещё не наступил, поля в структуре
 // нет — оно появляется вместе с его этапом плана.
 type api struct {
-	auth       *auth.Transport
-	people     *people.Transport
-	audit      *audit.Transport
-	settings   *settings.Transport
-	scenarios  *scenarios.Transport
-	generation *generation.Transport
-	profiles   *profiles.Transport
-	consents   *consents.Transport
+	auth        *auth.Transport
+	people      *people.Transport
+	audit       *audit.Transport
+	settings    *settings.Transport
+	scenarios   *scenarios.Transport
+	generation  *generation.Transport
+	profiles    *profiles.Transport
+	consents    *consents.Transport
+	assignments *assignments.Transport
+	sessions    *sessions.Transport
 }
 
 var _ gen.StrictServerInterface = (*api)(nil)
@@ -251,41 +255,41 @@ func (a *api) GetRehearsal(ctx context.Context, request gen.GetRehearsalRequestO
 // --- assignments (этап 07) ---
 
 func (a *api) ListAssignments(ctx context.Context, request gen.ListAssignmentsRequestObject) (gen.ListAssignmentsResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.ListAssignments(ctx, request)
 }
 
 func (a *api) CreateAssignments(ctx context.Context, request gen.CreateAssignmentsRequestObject) (gen.CreateAssignmentsResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.CreateAssignments(ctx, request)
 }
 
 func (a *api) ReissueCodes(ctx context.Context, request gen.ReissueCodesRequestObject) (gen.ReissueCodesResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.ReissueCodes(ctx, request)
 }
 
 func (a *api) ExtendAssignment(ctx context.Context, request gen.ExtendAssignmentRequestObject) (gen.ExtendAssignmentResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.ExtendAssignment(ctx, request)
 }
 
 func (a *api) CancelAssignment(ctx context.Context, request gen.CancelAssignmentRequestObject) (gen.CancelAssignmentResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.CancelAssignment(ctx, request)
 }
 
 func (a *api) UnblockCode(ctx context.Context, request gen.UnblockCodeRequestObject) (gen.UnblockCodeResponseObject, error) {
-	return nil, notImplemented()
+	return a.assignments.UnblockCode(ctx, request)
 }
 
 // --- sessions (этапы 07/08) ---
 
 func (a *api) TrainerEnter(ctx context.Context, request gen.TrainerEnterRequestObject) (gen.TrainerEnterResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerEnter(ctx, request)
 }
 
 func (a *api) TrainerStartSession(ctx context.Context, request gen.TrainerStartSessionRequestObject) (gen.TrainerStartSessionResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerStartSession(ctx, request)
 }
 
 func (a *api) TrainerGetPrivatePart(ctx context.Context, request gen.TrainerGetPrivatePartRequestObject) (gen.TrainerGetPrivatePartResponseObject, error) {
-	return nil, notImplemented()
+	return a.sessions.TrainerGetPrivatePart(ctx, request)
 }
 
 func (a *api) TrainerPostEvents(ctx context.Context, request gen.TrainerPostEventsRequestObject) (gen.TrainerPostEventsResponseObject, error) {

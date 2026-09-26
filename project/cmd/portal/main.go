@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	arenaapi "arena-portal-backend/api"
+	"arena-portal-backend/internal/modules/assignments"
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/consents"
@@ -26,6 +27,7 @@ import (
 	"arena-portal-backend/internal/modules/people"
 	"arena-portal-backend/internal/modules/profiles"
 	"arena-portal-backend/internal/modules/scenarios"
+	"arena-portal-backend/internal/modules/sessions"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/ai"
 	"arena-portal-backend/internal/platform/config"
@@ -117,22 +119,42 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	limiters := ratelimit.NewLimiters()
 
 	// --- модули (порядок — по зависимостям, CLAUDE.md, «Устройство модуля») ---
+	// Зависимости по кругу связываются пересылками из late.go (этап 07).
+	cancellerRef, audienceRef := &lateCanceller{}, &lateAudience{}
+	factsRef, versionCountsRef, runningRef := &lateSessionFacts{}, &lateVersionCounts{}, &lateRunning{}
+
 	auditModule := audit.New()
 	authModule, err := auth.New(pool, auditModule, auth.Config{
 		HMACSecret: cfg.CodeHMACSecret, CookieSecure: cfg.CookieSecure, Demo: cfg.Demo,
-	}, limiters.PortalLogin, operationAccess)
+	}, auth.Limiters{
+		PortalLogin: limiters.PortalLogin, CodeAttempt: limiters.CodeAttempt, TrainerToken: limiters.TrainerToken,
+	}, operationAccess)
 	if err != nil {
 		return nil, err
 	}
-	peopleModule := people.New(pool, auditModule, authModule.GroupAccess(), noAssignmentsYet{}, cfg.MasterKey)
+	peopleModule := people.New(pool, auditModule, authModule.GroupAccess(), cancellerRef, cfg.MasterKey)
 	settingsModule := settings.New(pool, auditModule, cfg.Demo)
-	scenariosModule := scenarios.New(pool, auditModule, settingsModule.Service(), noRehearsalsYet{}, noSessionsYet{})
+	scenariosModule := scenarios.New(pool, auditModule, settingsModule.Service(), noRehearsalsYet{}, versionCountsRef)
 	// Профили и согласия (этап 06). «Проверить профиль» — заглушка «не
-	// проверялось» (архитектура 10.3); идущих сессий и назначений до
-	// этапа 07 нет — заглушки из stubs.go.
-	profilesModule := profiles.New(pool, auditModule, cfg.MasterKey, nil, noRunningSessionsYet{})
+	// проверялось» (архитектура 10.3).
+	profilesModule := profiles.New(pool, auditModule, cfg.MasterKey, nil, runningRef)
 	consentsModule := consents.New(pool, auditModule, authModule.GroupAccess(), peopleModule.Service(),
-		profilesModule.Service(), noTrainerEntryYet{})
+		profilesModule.Service(), audienceRef)
+	// Назначения и вход в тренажёр (этап 07).
+	assignmentsModule := assignments.New(pool, assignments.Deps{
+		Audit: auditModule, Access: authModule.GroupAccess(), People: peopleModule.Service(),
+		Profiles: profilesModule.Service(), Versions: scenariosModule.Versions(), Settings: settingsModule.Service(),
+		Sessions: factsRef, CodeSecret: cfg.CodeHMACSecret, TrainerURL: cfg.TrainerURL,
+	})
+	sessionsModule := sessions.New(pool, sessions.Deps{
+		Entry: assignmentsModule.Entry(), Versions: scenariosModule.Versions(), People: peopleModule.Service(),
+		Profiles: profilesModule.Service(), Consents: consentsModule.Service(), Tokens: authModule.TrainerTokens(),
+	})
+	cancellerRef.target = assignmentsModule.Canceller()
+	audienceRef.target = sessionsModule.Audience()
+	factsRef.target = sessionsModule.Facts()
+	versionCountsRef.target = sessionsModule.VersionCounts()
+	runningRef.target = sessionsModule.Running()
 	demoModule := demo.New(pool, authModule.Provisioner(), peopleModule.Provisioner(),
 		profilesModule.Provisioner(), consentsModule.Provisioner())
 
@@ -179,14 +201,16 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	}
 
 	a := &api{
-		auth:       authModule.Transport,
-		people:     peopleModule.Transport,
-		audit:      auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
-		settings:   settingsModule,
-		scenarios:  scenariosModule.Transport,
-		generation: generationModule.Transport,
-		profiles:   profilesModule.Transport,
-		consents:   consentsModule.Transport,
+		auth:        authModule.Transport,
+		people:      peopleModule.Transport,
+		audit:       auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
+		settings:    settingsModule,
+		scenarios:   scenariosModule.Transport,
+		generation:  generationModule.Transport,
+		profiles:    profilesModule.Transport,
+		consents:    consentsModule.Transport,
+		assignments: assignmentsModule.Transport,
+		sessions:    sessionsModule.Transport,
 	}
 	return buildRouter(a, authModule.Transport.Middleware, authModule.Transport.PortalMiddleware, bodySchemas, logger), nil
 }

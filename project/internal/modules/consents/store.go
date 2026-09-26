@@ -148,3 +148,30 @@ func (s *store) latestUsable(ctx context.Context, q querier, subjectID uuid.UUID
 	}
 	return id, ok, nil
 }
+
+func (s *store) recordInfos(ctx context.Context, q querier, ids []uuid.UUID) ([]RecordInfo, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := q.Query(ctx, `
+		SELECT id, subject_id, assignment_id, kind, usable
+		FROM consent_records WHERE id = ANY($1)`, ids)
+	if err != nil {
+		return nil, fmt.Errorf("чтение записей согласия: %w", err)
+	}
+	defer rows.Close()
+	var out []RecordInfo
+	for rows.Next() {
+		var r RecordInfo
+		var kind string
+		if err := rows.Scan(&r.ID, &r.SubjectID, &r.AssignmentID, &kind, &r.Usable); err != nil {
+			return nil, fmt.Errorf("чтение записей согласия: %w", err)
+		}
+		r.Kind = gen.ConsentKind(kind)
+		out = append(out, r)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("чтение записей согласия: %w", err)
+	}
+	return out, nil
+}

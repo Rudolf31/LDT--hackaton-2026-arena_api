@@ -37,6 +37,11 @@ var roleDenialActions = map[string]gen.AuditAction{
 	"UpdatePortalSettings": gen.AuditActionSettingsChanged,
 	"PublishScenario":      gen.AuditActionScenarioPublished,
 	"ArchiveScenario":      gen.AuditActionScenarioArchived,
+	"CreateAssignments":    gen.AuditActionAssignmentCreated,
+	"ReissueCodes":         gen.AuditActionCodeReissued,
+	"ExtendAssignment":     gen.AuditActionAssignmentExtended,
+	"CancelAssignment":     gen.AuditActionAssignmentCancelled,
+	"UnblockCode":          gen.AuditActionCodeUnblocked,
 }
 
 type service struct {

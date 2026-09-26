@@ -28,7 +28,7 @@
 | 04 | [Сценарии и версии](04-scenarios.md) | `scenarios` | 02, 03 | ✅ |
 | 05 | [Авторство голосом и текстом](05-generation.md) | `platform/ai`, `generation` | 04 | ✅ |
 | 06 | [Профили и согласия](06-profiles-consents.md) | `profiles`, `consents` | 02 | ✅ |
-| 07 | [Назначения и вход в тренажёр](07-assignments-entry.md) | `assignments`, `sessions` (вход и старт) | 04, 06 | ⬜ |
+| 07 | [Назначения и вход в тренажёр](07-assignments-entry.md) | `assignments`, `sessions` (вход и старт) | 04, 06 | ✅ |
 | 08 | [Разговор](08-conversation.md) | `sessions` (события, завершение, судья), `jobs` | 07 | ⬜ |
 | 09 | [Результаты и аналитика](09-results-analytics.md) | `results`, `analytics` | 08 | ⬜ |
 | 10 | [Право, выгрузки, репетиции](10-legal-exports-rehearsals.md) | `decisions`, `objections`, `exports`, `rehearsals` | 09; `rehearsals` — 04, 06 | ⬜ |

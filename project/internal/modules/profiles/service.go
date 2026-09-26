@@ -529,6 +529,25 @@ func (s *service) SnapshotWithKeys(ctx context.Context, id uuid.UUID, externalAI
 	return snap, nil
 }
 
+func (s *service) ForClient(ctx context.Context, id uuid.UUID, externalAIAllowed bool) (Snapshot, error) {
+	eff, m, err := s.effective(ctx, s.pool, id)
+	if err != nil {
+		return Snapshot{}, err
+	}
+	snap := Snapshot{ProfileID: eff.ID, Revision: eff.Revision, Settings: eff.Settings, Routes: eff.Routes}
+	if !externalAIAllowed {
+		if snap.Settings, err = toGen(stripOpenRouter(m)); err != nil {
+			return Snapshot{}, err
+		}
+		snap.Routes.OpenRouter = false
+	}
+	return snap, nil
+}
+
+func (s *service) Names(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	return s.store.names(ctx, s.pool, ids)
+}
+
 // --- Provisioner ---
 
 // EnsureDefaultTx — профиль по умолчанию, если его ещё нет (D-46).
