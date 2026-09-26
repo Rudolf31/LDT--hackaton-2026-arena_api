@@ -176,7 +176,11 @@ func (s *store) saveDraft(ctx context.Context, tx pgx.Tx, id uuid.UUID, u draftU
 		WHERE id = $1
 	`, id, u.Slug, u.Mode, u.DraftDocument, u.DraftFingerprint, u.DraftCheck, u.DraftUpdatedAt, u.UpdatedBy)
 	if err != nil {
-		if v, ok := pg.AsViolation(err); ok && v.Kind == pg.ForeignKey {
+		// Проверяем имя ограничения, а не только вид нарушения: тот же UPDATE
+		// пишет ещё и draft_updated_by (FK на portal_users) — его нарушение
+		// не имеет отношения к смене режима и не должно превращаться в
+		// mode_locked (обнаружено в код-ревью 04).
+		if v, ok := pg.AsViolation(err); ok && v.Kind == pg.ForeignKey && v.Constraint == "scenario_versions_mode_locks_scenario" {
 			return errModeLocked
 		}
 		return fmt.Errorf("сохранение черновика: %w", err)

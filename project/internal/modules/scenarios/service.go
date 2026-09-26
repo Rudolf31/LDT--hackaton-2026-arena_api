@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"time"
@@ -284,10 +285,17 @@ func (s *service) Get(ctx context.Context, a actor.Actor, id uuid.UUID) (scenari
 		return scenarioDetail{}, errScenarioMissing()
 	}
 	d := scenarioDetail{Row: row}
-	if latest, ok, err := s.store.latestVersion(ctx, s.pool, id); err != nil {
-		return scenarioDetail{}, err
-	} else if ok {
-		d.LatestVersion = &latest
+	// Гвардия по row.VersionsCount (тот же снимок строки, что и остальные
+	// поля row), а не безусловный запрос: без неё окно между этим SELECT и
+	// latestVersion могло дать рассинхронизацию (row.VersionsCount = 0, но
+	// LatestVersion уже заполнен, если версия опубликовалась конкурентно
+	// между двумя запросами) — так же, как уже сделано в List ниже.
+	if row.VersionsCount > 0 {
+		if latest, ok, err := s.store.latestVersion(ctx, s.pool, id); err != nil {
+			return scenarioDetail{}, err
+		} else if ok {
+			d.LatestVersion = &latest
+		}
 	}
 	admission, err := s.admissionFor(ctx, id, row.DraftFingerprint, nil)
 	if err != nil {
@@ -329,11 +337,11 @@ func (s *service) List(ctx context.Context, a actor.Actor, p listParams) (listRe
 				d.LatestVersion = &latest
 			}
 		}
-		admission, err := s.admissionFor(ctx, r.ID, r.DraftFingerprint, nil)
-		if err != nil {
-			return listResult{}, err
-		}
-		d.Admission = admission
+		// Admission сюда не считаем: toScenarioListItem (единственный
+		// потребитель List) его не читает — только toScenarioCard (Get/
+		// Create/Import/Archive). Раньше это давало settings.Get и
+		// rehearsals.Count на каждую строку страницы библиотеки без всякой
+		// пользы (найдено в код-ревью 04).
 		items = append(items, d)
 	}
 	return listResult{Items: items, Total: total}, nil
@@ -780,7 +788,14 @@ func passportOrGeneration(row scenarioRow) (title string, sphere gen.Sphere, neg
 		Title  string `json:"title"`
 	}
 	if row.Generation != nil {
-		_ = json.Unmarshal(row.Generation, &g)
+		// Ошибка не пробрасывается — это вспомогательное поле для карточки
+		// библиотеки (правило 8 не про такие read-only витрины, см.
+		// MainWeights в scenariodoc), но и не должна пропадать бесследно:
+		// повреждённая scenarios.generation — признак дефекта в записавшем
+		// её коде (этап 05), и это стоит видеть в логе (найдено в код-ревью 04).
+		if err := json.Unmarshal(row.Generation, &g); err != nil {
+			log.Printf("scenarios: не удалось разобрать generation сценария %s: %v", row.ID, err)
+		}
 	}
 	title = g.Title
 	generating = g.Status == "running"

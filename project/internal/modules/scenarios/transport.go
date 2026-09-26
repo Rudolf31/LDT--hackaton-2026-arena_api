@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/google/uuid"
 
@@ -102,6 +103,9 @@ func createFieldsFromRequest(body gen.CreateScenarioRequest) (createFields, erro
 		if err != nil {
 			return createFields{}, fmt.Errorf("тело запроса: %w", err)
 		}
+		// Форма тела продублирована в platform/httpx/schema.go:patchOutdatedSchemas
+		// (JSON Schema для проверки тела) — при добавлении/переименовании
+		// поля здесь проверьте и её (найдено в код-ревью 04).
 		var bf struct {
 			Mode  gen.Mode `json:"mode"`
 			Title *string  `json:"title"`
@@ -331,6 +335,10 @@ func blockingErrors(row scenarioRow) *int {
 		Blocking int `json:"blocking"`
 	}
 	if err := json.Unmarshal(row.DraftCheck, &cr); err != nil {
+		// draft_check пишется только этим же модулем (toCheckResult) — если
+		// он не разбирается, это дефект, а не пользовательский ввод; молчать
+		// об этом нельзя (правило 8, найдено в код-ревью 04).
+		log.Printf("scenarios: не удалось разобрать draft_check сценария %s: %v", row.ID, err)
 		return nil
 	}
 	n := cr.Blocking

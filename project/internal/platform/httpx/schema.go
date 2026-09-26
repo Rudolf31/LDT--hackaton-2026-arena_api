@@ -209,6 +209,14 @@ func (s *BodySchemas) ByOperationID(id string) (*operation, bool) {
 // дерево в памяти — сам arena-api.yaml не трогаем. Контракта без
 // components.schemas.CreateFromBrief (например, урезанной спецификации в
 // тестах платформы) не касается — там патчить нечего.
+//
+// Форма тела здесь и разбор ветки origin=brief в
+// scenarios/transport.go:createFieldsFromRequest — два независимых описания
+// одной и той же формы (JSON Schema для проверки тут, анонимная Go-структура
+// там для разбора: сгенерированный CreateFromBrief по этой же причине не
+// годится). Ничто их не связывает, кроме этого комментария — при добавлении
+// или переименовании поля в CreateFromBrief проверьте оба места (найдено в
+// код-ревью 04).
 func patchOutdatedSchemas(doc map[string]any) {
 	components, ok := doc["components"].(map[string]any)
 	if !ok {
