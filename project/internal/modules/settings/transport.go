@@ -19,6 +19,11 @@ func newTransport(service Service) *Transport {
 	return &Transport{service: service}
 }
 
+// Service — служба settings для других модулей (scenarios читает порог
+// допуска к оценке, D-26/12.5). New возвращает только *Transport, поэтому
+// зависимость достаётся через этот метод, а не отдельным полем сборки.
+func (t *Transport) Service() Service { return t.service }
+
 func (t *Transport) GetPortalSettings(ctx context.Context, _ gen.GetPortalSettingsRequestObject) (gen.GetPortalSettingsResponseObject, error) {
 	result, err := t.service.Get(ctx)
 	if err != nil {

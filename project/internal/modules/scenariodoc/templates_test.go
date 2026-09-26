@@ -71,6 +71,32 @@ func decodeWeights(t *testing.T, document []byte) weights {
 	}
 }
 
+// TestMainWeights — три наибольших веса доводов, без «без опоры» (`none`,
+// который правило 13 всегда держит на 0), в порядке убывания.
+func TestMainWeights(t *testing.T) {
+	byID := map[string]scenariodoc.Template{}
+	for _, tpl := range scenariodoc.Templates() {
+		byID[tpl.ID] = tpl
+	}
+	weights := scenariodoc.MainWeights(byID["procurement"].Document)
+	if len(weights) != 3 {
+		t.Fatalf("ожидалось 3 веса, получено %d: %v", len(weights), weights)
+	}
+	for _, w := range weights {
+		if w.Evidence == "none" {
+			t.Fatalf("«без опоры» не должна попадать в главные веса: %v", weights)
+		}
+		if w.Label == "" {
+			t.Fatalf("у веса %q нет подписи", w.Evidence)
+		}
+	}
+	for i := 1; i < len(weights); i++ {
+		if weights[i].Weight > weights[i-1].Weight {
+			t.Fatalf("веса должны идти по убыванию: %v", weights)
+		}
+	}
+}
+
 // TestInternalPromotionHigherBetter — FR-SC-13: во «Внутреннем повышении»
 // предел выше старта принимается (направление higher_better).
 func TestInternalPromotionHigherBetter(t *testing.T) {

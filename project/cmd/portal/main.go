@@ -22,6 +22,7 @@ import (
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/demo"
 	"arena-portal-backend/internal/modules/people"
+	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/config"
 	"arena-portal-backend/internal/platform/httpx"
@@ -121,6 +122,7 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	}
 	peopleModule := people.New(pool, auditModule, authModule.GroupAccess(), noAssignmentsYet{}, cfg.MasterKey)
 	settingsModule := settings.New(pool, auditModule, cfg.Demo)
+	scenariosModule := scenarios.New(pool, auditModule, settingsModule.Service(), noRehearsalsYet{}, noSessionsYet{})
 	demoModule := demo.New(pool, authModule.Provisioner(), peopleModule.Provisioner())
 
 	seeded, err := demoModule.SeedIfEmpty(ctx)
@@ -133,10 +135,11 @@ func buildApp(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, logger
 	}
 
 	a := &api{
-		auth:     authModule.Transport,
-		people:   peopleModule.Transport,
-		audit:    auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
-		settings: settingsModule,
+		auth:      authModule.Transport,
+		people:    peopleModule.Transport,
+		audit:     auditModule.NewTransport(pool, authModule.Directory(), peopleModule.Directory()),
+		settings:  settingsModule,
+		scenarios: scenariosModule.Transport,
 	}
 	return buildRouter(a, authModule.Transport.Middleware, bodySchemas, logger), nil
 }

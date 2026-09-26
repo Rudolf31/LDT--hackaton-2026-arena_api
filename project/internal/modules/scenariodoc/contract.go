@@ -11,6 +11,13 @@
 // расхождения») — схема документа живёт только здесь, в Go-коде.
 package scenariodoc
 
+// EngineVersion — версия проверяющего кода, которая пишется в
+// CheckResult.engine_version и в scenario_versions.engine_version (D-27).
+// Пакета движка нет (CLAUDE.md, «Действующие решения»): эту роль занимает
+// сам scenariodoc, и версия у него одна на весь портал, без отдельного
+// журнала изменений — меняется вручную при значимой правке правил.
+const EngineVersion = "arena-portal/scenariodoc-1"
+
 // Level — уровень сложности сценария.
 type Level string
 
@@ -55,10 +62,20 @@ type Fingerprinter interface {
 // блокирующих ошибок на всех трёх уровнях сложности — это проверяется
 // тестом пакета, а не пересчитывается при каждом вызове Templates.
 type Template struct {
-	ID       string
-	Title    string
-	Sphere   Sphere
-	Document []byte
+	ID          string
+	Title       string
+	Description string
+	Sphere      Sphere
+	Document    []byte
+}
+
+// EvidenceWeight — одна опора довода документа с весом (UC-M-02, карточка
+// шаблона). Evidence — машинный id опоры (raздел 9 arena-scenario-format.md),
+// Label — русская подпись.
+type EvidenceWeight struct {
+	Evidence string
+	Label    string
+	Weight   float64
 }
 
 // PassportSummary — выборка паспорта документа для библиотеки сценариев

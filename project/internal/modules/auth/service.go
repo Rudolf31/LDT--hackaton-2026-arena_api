@@ -35,6 +35,8 @@ var roleDenialActions = map[string]gen.AuditAction{
 	"WithdrawConsent":      gen.AuditActionConsentWithdrawn,
 	"ExportAuditLog":       gen.AuditActionAuditExported,
 	"UpdatePortalSettings": gen.AuditActionSettingsChanged,
+	"PublishScenario":      gen.AuditActionScenarioPublished,
+	"ArchiveScenario":      gen.AuditActionScenarioArchived,
 }
 
 type service struct {

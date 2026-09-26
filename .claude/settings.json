@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go build *)",
+      "Bash(go tool *)",
+      "Bash(go generate *)",
+      "Bash(go test *)",
+      "Bash(docker compose *)",
+      "Bash(break)",
+      "Bash(export ARENA_TEST_ADMIN_DSN=\"postgres://postgres:S6jByP4DWuUw7D8CgwI8fYud@localhost:5432/postgres?sslmode=disable\" ARENA_TEST_APP_PASSWORD=\"PYVOKdLHOsfm0wWROHoF5KJf\")",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

@@ -51,6 +51,7 @@ func LoadBodySchemas(yamlContent []byte, defaultMaxBytes int64, maxBytesByOperat
 		return nil, fmt.Errorf("разбор контракта: %w", err)
 	}
 	doc = sanitizeScenarioDocRefs(doc).(map[string]any)
+	patchOutdatedSchemas(doc)
 
 	compiler := jsonschema.NewCompiler()
 	if err := compiler.AddResource(resourceURL, doc); err != nil {
@@ -197,6 +198,39 @@ func (s *BodySchemas) match(method, path string) (*operation, bool) {
 func (s *BodySchemas) ByOperationID(id string) (*operation, bool) {
 	op, ok := s.byID[id]
 	return op, ok
+}
+
+// patchOutdatedSchemas закрывает расхождение контракта, которое CLAUDE.md
+// («Известные расхождения») просит не чинить в самом arena-api.yaml (D-26):
+// CreateFromBrief там всё ещё требует отменённую анкету questionnaire
+// (FR-SC-03 снята). Схема подменяется на закрытую — без анкеты, вместо неё
+// название сценария (`title`), из которого его позже назовёт генерация
+// (`scenarios.generation`, arena-portal-hr.md 11.1). Правится только это
+// дерево в памяти — сам arena-api.yaml не трогаем. Контракта без
+// components.schemas.CreateFromBrief (например, урезанной спецификации в
+// тестах платформы) не касается — там патчить нечего.
+func patchOutdatedSchemas(doc map[string]any) {
+	components, ok := doc["components"].(map[string]any)
+	if !ok {
+		return
+	}
+	schemas, ok := components["schemas"].(map[string]any)
+	if !ok {
+		return
+	}
+	if _, ok := schemas["CreateFromBrief"]; !ok {
+		return
+	}
+	schemas["CreateFromBrief"] = map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []any{"origin", "mode", "title"},
+		"properties": map[string]any{
+			"origin": map[string]any{"const": "brief"},
+			"mode":   map[string]any{"$ref": "#/components/schemas/Mode"},
+			"title":  map[string]any{"type": "string", "minLength": 1, "maxLength": 200},
+		},
+	}
 }
 
 // sanitizeScenarioDocRefs рекурсивно заменяет $ref на arena-scenario.schema.json

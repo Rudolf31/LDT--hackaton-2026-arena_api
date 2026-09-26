@@ -138,7 +138,8 @@ func expectStatus(t *testing.T, rec *httptest.ResponseRecorder, want int) {
 
 func TestRouterUnimplementedOperationAnswers501(t *testing.T) {
 	e := newTestEnv(t)
-	rec := e.do(http.MethodGet, "/api/portal/scenarios", "", e.login(adminLogin, adminPassword))
+	// /scenarios живёт с этапа 04; /trainer-profiles остаётся 501 до этапа 06.
+	rec := e.do(http.MethodGet, "/api/portal/trainer-profiles", "", e.login(adminLogin, adminPassword))
 	expectStatus(t, rec, http.StatusNotImplemented)
 	if problem := decode[map[string]any](t, rec); problem["title"] == "" {
 		t.Fatal("title не должен быть пустым")

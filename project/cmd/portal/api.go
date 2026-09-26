@@ -7,6 +7,7 @@ import (
 	"arena-portal-backend/internal/modules/audit"
 	"arena-portal-backend/internal/modules/auth"
 	"arena-portal-backend/internal/modules/people"
+	"arena-portal-backend/internal/modules/scenarios"
 	"arena-portal-backend/internal/modules/settings"
 	"arena-portal-backend/internal/platform/httpx"
 )
@@ -25,10 +26,11 @@ import (
 // модуль). У модуля, для которого этап ещё не наступил, поля в структуре
 // нет — оно появляется вместе с его этапом плана.
 type api struct {
-	auth     *auth.Transport
-	people   *people.Transport
-	audit    *audit.Transport
-	settings *settings.Transport
+	auth      *auth.Transport
+	people    *people.Transport
+	audit     *audit.Transport
+	settings  *settings.Transport
+	scenarios *scenarios.Transport
 }
 
 var _ gen.StrictServerInterface = (*api)(nil)
@@ -144,55 +146,55 @@ func (a *api) ArchiveTrainerProfile(ctx context.Context, request gen.ArchiveTrai
 // --- scenarios (этап 04) ---
 
 func (a *api) ListScenarios(ctx context.Context, request gen.ListScenariosRequestObject) (gen.ListScenariosResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ListScenarios(ctx, request)
 }
 
 func (a *api) CreateScenario(ctx context.Context, request gen.CreateScenarioRequestObject) (gen.CreateScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.CreateScenario(ctx, request)
 }
 
 func (a *api) ListScenarioTemplates(ctx context.Context, request gen.ListScenarioTemplatesRequestObject) (gen.ListScenarioTemplatesResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ListScenarioTemplates(ctx, request)
 }
 
 func (a *api) ImportScenario(ctx context.Context, request gen.ImportScenarioRequestObject) (gen.ImportScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ImportScenario(ctx, request)
 }
 
 func (a *api) GetScenario(ctx context.Context, request gen.GetScenarioRequestObject) (gen.GetScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.GetScenario(ctx, request)
 }
 
 func (a *api) GetDraft(ctx context.Context, request gen.GetDraftRequestObject) (gen.GetDraftResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.GetDraft(ctx, request)
 }
 
 func (a *api) SaveDraft(ctx context.Context, request gen.SaveDraftRequestObject) (gen.SaveDraftResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.SaveDraft(ctx, request)
 }
 
 func (a *api) CheckDraft(ctx context.Context, request gen.CheckDraftRequestObject) (gen.CheckDraftResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.CheckDraft(ctx, request)
 }
 
 func (a *api) PublishScenario(ctx context.Context, request gen.PublishScenarioRequestObject) (gen.PublishScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.PublishScenario(ctx, request)
 }
 
 func (a *api) ListVersions(ctx context.Context, request gen.ListVersionsRequestObject) (gen.ListVersionsResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ListVersions(ctx, request)
 }
 
 func (a *api) GetVersion(ctx context.Context, request gen.GetVersionRequestObject) (gen.GetVersionResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.GetVersion(ctx, request)
 }
 
 func (a *api) ExportScenario(ctx context.Context, request gen.ExportScenarioRequestObject) (gen.ExportScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ExportScenario(ctx, request)
 }
 
 func (a *api) ArchiveScenario(ctx context.Context, request gen.ArchiveScenarioRequestObject) (gen.ArchiveScenarioResponseObject, error) {
-	return nil, notImplemented()
+	return a.scenarios.ArchiveScenario(ctx, request)
 }
 
 // --- generation (этап 05) ---
