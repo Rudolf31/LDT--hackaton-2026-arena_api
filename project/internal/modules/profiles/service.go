@@ -245,8 +245,8 @@ func (s *service) Update(ctx context.Context, a actor.Actor, id uuid.UUID, name 
 }
 
 // validate — UC-A-01 по итоговым настройкам: у профиля по умолчанию —
-// по его собственным (наследовать ему не из чего), у остальных — после
-// слияния с профилем по умолчанию.
+// по его собственным (наследовать ему не из чего) и по итоговым всех его
+// наследников, у остальных — после слияния с профилем по умолчанию.
 func (s *service) validate(ctx context.Context, q querier, isDefault bool, own []byte) error {
 	ownMap, err := parseSettings(own)
 	if err != nil {
@@ -262,9 +262,36 @@ func (s *service) validate(ctx context.Context, q querier, isDefault bool, own [
 			return err
 		}
 	}
-	eff := merge(base, ownMap)
-	if errs := validateEffective(eff); len(errs) > 0 {
+	if errs := validateEffective(merge(base, ownMap)); len(errs) > 0 {
 		return httpx.NewError(httpx.KindValidationFailed, errs[0].Message).WithErrors(errs)
+	}
+	if isDefault {
+		return s.validateHeirs(ctx, q, ownMap)
+	}
+	return nil
+}
+
+// validateHeirs — правка профиля по умолчанию меняет итоговые настройки
+// всех, кто из него наследует: каждый действующий профиль должен остаться
+// годным (UC-A-01), иначе негодный снимок уйдёт клиенту-тренажёру.
+func (s *service) validateHeirs(ctx context.Context, q querier, base map[string]any) error {
+	rows, err := s.store.listAdmin(ctx, q, false, nil)
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if r.IsDefault {
+			continue
+		}
+		own, err := parseSettings(r.Settings)
+		if err != nil {
+			return err
+		}
+		if errs := validateEffective(merge(base, own)); len(errs) > 0 {
+			msg := fmt.Sprintf("После этой правки профиль «%s» перестанет работать: %s", r.Name, errs[0].Message)
+			return httpx.NewError(httpx.KindValidationFailed, msg).
+				WithErrors([]gen.FieldError{{Path: "/settings", Message: msg}})
+		}
 	}
 	return nil
 }

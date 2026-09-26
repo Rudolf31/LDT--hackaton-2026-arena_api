@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -252,6 +253,40 @@ func TestProfileCreateCopyPatchAndSettingsRules(t *testing.T) {
 	if len(check.Rows) != 4 || check.Rows[0].Message == "" {
 		t.Fatalf("проверка профиля: %+v", check)
 	}
+}
+
+func TestDefaultProfileEditKeepsHeirsValid(t *testing.T) {
+	e := newTestEnv(t)
+	admin := e.login(adminLogin, adminPassword)
+	def := e.defaultProfile(admin)
+
+	// Наследник держится за OpenRouter из профиля по умолчанию.
+	rec := e.do(http.MethodPost, "/api/portal/trainer-profiles", `{"name":"Наследник","settings":{"primary_route":"openrouter"}}`, admin)
+	expectStatus(t, rec, http.StatusCreated)
+	heir := decode[profileBody](t, rec)
+
+	// Сам по себе профиль по умолчанию без OpenRouter годен, но наследник — нет.
+	settings := map[string]any{}
+	for k, v := range def.Settings {
+		settings[k] = v
+	}
+	delete(settings, "openrouter")
+	settings["primary_route"] = "own_server"
+	settings["model_server"] = map[string]any{"base_url": "https://models.example.org/v1"}
+	body, _ := json.Marshal(map[string]any{"settings": settings})
+
+	rec = e.do(http.MethodPatch, "/api/portal/trainer-profiles/"+def.ID, string(body), admin)
+	expectStatus(t, rec, http.StatusUnprocessableEntity)
+	if !strings.Contains(rec.Body.String(), "Наследник") {
+		t.Fatalf("отказ должен назвать профиль, который сломается: %s", rec.Body.String())
+	}
+	if got := e.defaultProfile(admin); got.Revision != def.Revision {
+		t.Fatalf("отклонённая правка не меняет профиль по умолчанию: ревизия %d → %d", def.Revision, got.Revision)
+	}
+
+	// Архивный наследник правке не мешает.
+	expectStatus(t, e.do(http.MethodPost, "/api/portal/trainer-profiles/"+heir.ID+"/archive", "", admin), http.StatusOK)
+	expectStatus(t, e.do(http.MethodPatch, "/api/portal/trainer-profiles/"+def.ID, string(body), admin), http.StatusOK)
 }
 
 func TestProfileWritesAreAdminOnly(t *testing.T) {

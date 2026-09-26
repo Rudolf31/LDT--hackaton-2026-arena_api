@@ -47,6 +47,18 @@ type WrittenInput struct {
 	ValidUntil      *time.Time
 }
 
+// moscow — календарь портала: даты документов ставятся по московскому
+// времени, в каком бы поясе ни работал сервер. Пояс фиксированный, чтобы
+// не зависеть от tzdata в образе.
+var moscow = time.FixedZone("MSK", 3*60*60)
+
+// dateOf — календарная дата момента t по Москве, в той же форме, в какой
+// приходит дата из тела запроса: полночь UTC.
+func dateOf(t time.Time) time.Time {
+	y, m, d := t.In(moscow).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
 func fieldError(path, message string) *httpx.Error {
 	return httpx.NewError(httpx.KindValidationFailed, message).
 		WithErrors([]gen.FieldError{{Path: path, Message: message}})
@@ -249,8 +261,7 @@ func (s *service) RecordWritten(ctx context.Context, a actor.Actor, subjectID uu
 	if ref == "" {
 		return Record{}, fieldError("/document_ref", "Укажите номер и дату документа.")
 	}
-	today := s.now()
-	if in.SignedOn.After(today) {
+	if in.SignedOn.After(dateOf(s.now())) {
 		return Record{}, fieldError("/signed_on", "Дата подписания не может быть в будущем.")
 	}
 	if in.ValidUntil != nil && in.ValidUntil.Before(in.SignedOn) {
