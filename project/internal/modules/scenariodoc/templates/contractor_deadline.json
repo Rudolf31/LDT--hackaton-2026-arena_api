@@ -1,0 +1,403 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "contractor_deadline_case",
+    "version": 0,
+    "title": "Пересогласование срока с подрядчиком",
+    "mode": "training",
+    "sphere": "contractor_deadline",
+    "negotiation_type": "mixed",
+    "tags": ["подрядчик", "срок", "неустойка"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Подрядчик должен был сдать этап работ неделю назад, но просит перенести срок на два месяца. Вам нужно решить, на каких условиях согласиться.",
+    "participant_role": "Руководитель проекта со стороны заказчика",
+    "goal": "Добиться нового срока как можно раньше и неустойки как можно выше",
+    "constraints": ["Перенос дальше 15 апреля вы можете согласовать сами, только если неустойка не ниже 350 000 ₽"],
+    "fallback_option": "Расторжение договора и поиск нового подрядчика — минус три месяца к проекту",
+    "known_facts": ["В договоре прописана неустойка 0,1% в день от суммы контракта"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Андрей Волков",
+      "role": "Директор компании-подрядчика",
+      "organization": "ООО «СтройМонтажСервис»",
+      "speech_manner": "Говорит извиняющимся тоном в начале, но твёрдо держится цифр по неустойке.",
+      "voice": { "voice_id": "ru_male_low_03", "speed": 0.95 },
+      "appearance": { "avatar_id": "businessman_15" }
+    },
+    "brief": {
+      "character": "Подрядчик, попавший в сложную ситуацию: хочет сохранить отношения, но платить по максимуму не готов.",
+      "goals": ["Получить перенос срока без расторжения договора", "Минимизировать сумму неустойки"],
+      "interests": [
+        { "id": "keep_contract", "label": "Сохранить договор и репутацию", "weight": 1.0, "description": "Андрей больше всего боится расторжения и потери репутации на рынке." },
+        { "id": "minimize_penalty", "label": "Минимизировать сумму неустойки", "weight": 0.4, "description": "Андрей ищет способ снизить неустойку, не выглядя при этом уклоняющимся." }
+      ],
+      "fallback_option": "Предложить компенсацию ресурсами вместо денежной неустойки",
+      "never_concede": ["Полная сумма неустойки по договору без переноса срока"],
+      "concede_for": ["Готовность заказчика не расторгать договор снимает половину напряжения"],
+      "what_offends": "Угроза расторжения без обсуждения причин — Андрей считает это несправедливым.",
+      "unknown_answer": "Скажет, что уточнит у своего финансового директора."
+    }
+  },
+  "issues": [
+    {
+      "id": "new_deadline",
+      "label": "Новый срок сдачи",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-04-01",
+        "limit": { "value": "2027-04-20" }
+      },
+      "opponent": {
+        "start": "2027-06-01",
+        "limit": { "value": "2027-04-15" }
+      }
+    },
+    {
+      "id": "penalty",
+      "label": "Сумма неустойки",
+      "type": "number",
+      "unit": "₽",
+      "direction": "higher_better",
+      "participant": {
+        "target": 500000,
+        "limit": { "value": 200000 }
+      },
+      "opponent": {
+        "start": 50000,
+        "limit": { "value": 350000 }
+      }
+    },
+    {
+      "id": "compensation",
+      "label": "Форма компенсации",
+      "type": "choice",
+      "options": [
+        { "id": "discount_next_phase", "label": "скидка на следующий этап" },
+        { "id": "extra_resources", "label": "дополнительные ресурсы подрядчика" }
+      ],
+      "participant": {
+        "target": "extra_resources",
+        "acceptable": ["discount_next_phase", "extra_resources"]
+      },
+      "opponent": {
+        "start": "discount_next_phase",
+        "acceptable": ["discount_next_phase", "extra_resources"]
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 40, "min": 0, "max": 100 },
+    "pressure": { "initial": 15, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "no_termination_offered", "label": "Участник дал понять, что не будет расторгать договор" },
+      { "id": "bluff_suspected", "label": "Андрей заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "subcontractor_delay",
+      "label": "Реальная причина срыва — задержка субподрядчика",
+      "text": "Андрей признаёт: их субподрядчик по фасадным работам сорвал поставку материалов на три недели — вот основная причина задержки.",
+      "reveal_when": { "move": "probe_delay_reason", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "contractor_cashflow",
+      "label": "У подрядчика проблемы с оборотными средствами",
+      "text": "У компании Андрея сейчас проблемы с оборотными средствами — крупная неустойка ударит по текущим проектам.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_delay_reason",
+      "parent": "probe_problem",
+      "label": "Вопрос о причине задержки",
+      "description": "Вопрос о том, что именно вызвало задержку и была ли она в зоне контроля подрядчика.",
+      "examples": [
+        "Что именно стало причиной задержки?",
+        "Была ли задержка связана с вашими субподрядчиками?",
+        "Что помешало уложиться в исходный срок?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.4,
+    "market_price": 0.4,
+    "past_contract": 0.9,
+    "spec_document": 0.7,
+    "third_party": 0.5,
+    "policy_rule": 0.5,
+    "own_constraint": 0.3,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "no_termination_trade",
+      "if": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["no_termination_offered"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Извиниться и попросить перенос до 1 июня с минимальной неустойкой 50 000 ₽.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Обещать конкретную дату без согласования с производством"],
+        "tactics": ["Начать с извинений, затем перейти к цифрам"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, минутку."],
+      "fallback_lines": ["Мы просим перенос на {new_deadline}, неустойка — {penalty}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_no_termination", "when": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за срок и неустойку",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, ссылаться на пункты договора.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Обещать конкретную дату без согласования с производством"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "new_deadline", "can_move": true, "step": 3, "stop_at": { "value": "2027-04-25" }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "penalty", "can_move": true, "step": 20000, "stop_at": { "value": 300000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "compensation", "can_move": true, "stop_at": { "value": "extra_resources" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["subcontractor_delay"],
+      "fillers": ["Слушаю.", "Понимаю."],
+      "fallback_lines": ["Пока предлагаем неустойку {penalty}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_no_termination", "when": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_no_termination",
+      "label": "Размен: без расторжения за неустойку",
+      "directive": {
+        "goal": "За понимание, что расторжения не будет, уступать в неустойке крупными шагами.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Обещать конкретную дату без согласования с производством"],
+        "tactics": ["Условная уступка: «если вы не расторгаете — то и я готов на большую неустойку»"]
+      },
+      "offer_policy": [
+        { "issue": "penalty", "can_move": true, "step": 20000, "stop_at": { "value": 300000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "compensation", "can_move": true, "stop_at": { "value": "extra_resources" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["subcontractor_delay"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["В этом случае готовы на неустойку {penalty}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задет",
+      "directive": {
+        "goal": "Коротко показать, что задет угрозой расторжения; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Обещать конкретную дату без согласования с производством"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "penalty", "can_move": true, "step": 10000, "stop_at": { "value": 330000 }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["subcontractor_delay", "contractor_cashflow"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы настаиваем на неустойке {penalty}, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_no_termination", "when": { "flag": "no_termination_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: неустойка {penalty}."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Договорённость",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить новый срок и неустойку, попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Хорошо, фиксируем новые условия."]
+    },
+    {
+      "id": "walkout",
+      "label": "Расторжение",
+      "terminal": true,
+      "directive": { "goal": "Завершить разговор без соглашения.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда договор придётся расторгнуть."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Условия соглашения выходят за пределы полномочий участника — нужно отдельное согласование с руководителем проекта."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Соглашения нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — договор придётся расторгать."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Перенос без потерь для заказчика",
+      "when": {
+        "all": [
+          { "offer": "new_deadline", "side": "opponent", "op": "lte", "value": "2027-04-20" },
+          { "offer": "penalty", "side": "opponent", "op": "gte", "value": 330000 },
+          { "fact": "subcontractor_delay", "revealed": true }
+        ]
+      },
+      "epilogue": "Новый срок не позже 20 апреля, неустойка не ниже 330 000 ₽, и причина задержки понятна — проект продолжается без потерь для заказчика."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Соглашение достигнуто в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 50,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "penalty": { "opponent_start": 80000, "limit_shift": -20000 } },
+      "fact_conditions": { "contractor_cashflow": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "subcontractor_delay": "volunteers" },
+      "opponent_manner": "Андрей дружелюбнее обычного и сам предлагает компенсацию.",
+      "extra_tactics": [],
+      "hints": ["Спросите, что стало причиной задержки."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 28,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "penalty": { "opponent_start": 30000, "limit_shift": 20000 } },
+      "fact_conditions": {
+        "subcontractor_delay": { "all": [{ "move": "probe_delay_reason", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 25 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Андрей резче обычного и чаще ссылается на форс-мажор.",
+      "extra_tactics": ["Решение нужно согласовать до конца дня."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте вернёмся к срокам и неустойке.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон пересогласования срока с подрядчиком для библиотеки сценариев.",
+    "notes": "Неустойка — higher_better с точки зрения участника-заказчика: предел оппонента (350 000) выше его старта (50 000), FR-SC-13."
+  }
+}

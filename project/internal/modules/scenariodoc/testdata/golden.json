@@ -1,0 +1,431 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "cable_supply_deadline",
+    "version": 0,
+    "title": "Поставка кабеля к сроку",
+    "mode": "training",
+    "sphere": "procurement",
+    "negotiation_type": "mixed",
+    "tags": ["закупка", "срок"],
+    "origin": "manual"
+  },
+  "brief": {
+    "situation": "На площадке через две недели начинается монтаж, а кабель нужного сечения ещё не заказан. Все цены — за метр, без НДС, с доставкой на склад.",
+    "participant_role": "Специалист по закупкам дирекции снабжения",
+    "goal": "Закупить партию кабеля по цене не выше цели, с отгрузкой не позже 1 апреля 2027 года",
+    "constraints": ["Полную предоплату можно согласовать самостоятельно, только если цена не выше 195 ₽ за метр"],
+    "fallback_option": "Другой поставщик: 220 ₽ за метр, но отгрузка за три дня",
+    "known_facts": ["В прошлом квартале похожую партию закупали по 185 ₽ за метр"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Игорь Панов",
+      "role": "Коммерческий директор",
+      "organization": "ООО «КабельСнаб»",
+      "speech_manner": "Говорит спокойно и по делу, оперирует цифрами.",
+      "voice": { "voice_id": "ru_male_low_01", "speed": 1.0 },
+      "appearance": { "avatar_id": "businessman_10" }
+    },
+    "brief": {
+      "character": "Осторожный переговорщик: уважает собеседника с цифрами, не любит спешку.",
+      "goals": ["Получить оплату как можно раньше", "Не отгружать в убыток"],
+      "interests": [
+        { "id": "cash_now", "label": "Получить деньги как можно раньше", "weight": 1.0, "description": "Любой довод, который приближает оплату, для Игоря самый ценный." },
+        { "id": "keep_price_high", "label": "Не уронить цену для других клиентов", "weight": 0.4, "description": "Игорь помнит, что цена в этом контракте станет ориентиром." }
+      ],
+      "fallback_option": "Запасной покупатель на весь объём по 175 ₽ за метр, но только в мае",
+      "never_concede": ["Гарантия больше 12 месяцев"],
+      "concede_for": ["Полная предоплата ускоряет отгрузку и снимает риск неплатежа"],
+      "what_offends": "Обвинение в срыве сроков без объяснений.",
+      "unknown_answer": "Скажет, что уточнит у логистики и вернётся с ответом."
+    }
+  },
+  "issues": [
+    {
+      "id": "price",
+      "label": "Цена за метр",
+      "type": "number",
+      "unit": "₽ за метр",
+      "direction": "lower_better",
+      "limits_depend_on": "payment",
+      "participant": {
+        "target": 180,
+        "limit": { "value": 210, "by_option": { "prepay_100": 195 } }
+      },
+      "opponent": {
+        "start": 230,
+        "limit": { "value": 200, "by_option": { "prepay_100": 185 } }
+      }
+    },
+    {
+      "id": "payment",
+      "label": "Порядок оплаты",
+      "type": "choice",
+      "options": [
+        { "id": "prepay_100", "label": "полная предоплата" },
+        { "id": "deferral_30", "label": "отсрочка 30 дней" }
+      ],
+      "participant": {
+        "target": "deferral_30",
+        "acceptable": ["prepay_100", "deferral_30"]
+      },
+      "opponent": {
+        "start": "prepay_100",
+        "acceptable": ["prepay_100", "deferral_30"]
+      }
+    },
+    {
+      "id": "delivery_date",
+      "label": "Дата отгрузки",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-04-01",
+        "limit": { "value": "2027-04-10" }
+      },
+      "opponent": {
+        "start": "2027-04-20",
+        "limit": { "value": "2027-04-08" }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "prepay_offered", "label": "Участник предложил полную предоплату" },
+      { "id": "bluff_suspected", "label": "Игорь заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "warehouse_shortage",
+      "label": "На складе не хватает нужного сечения кабеля",
+      "text": "Игорь признаёт: нужного сечения на складе всего половина партии, остальное — под заказ, это добавит неделю.",
+      "reveal_when": { "move": "probe_compatibility", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "cash_gap",
+      "label": "У Игоря кассовый разрыв к концу месяца",
+      "text": "Игорю нужно закрыть кассовый разрыв до конца месяца — платёж по кредиту.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_compatibility",
+      "parent": "probe_problem",
+      "label": "Вопрос о совместимости сечения",
+      "description": "Вопрос о том, какое сечение кабеля есть на складе и подойдёт ли оно под проект.",
+      "examples": [
+        "Какое сечение кабеля у вас в наличии?",
+        "Этот кабель подойдёт под наш проект без переделок?",
+        "Вся партия нужного сечения есть на складе?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.9,
+    "market_price": 0.7,
+    "past_contract": 0.6,
+    "spec_document": 0.5,
+    "third_party": 0.4,
+    "policy_rule": 0.3,
+    "own_constraint": 0.25,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    {
+      "id": "greet_once",
+      "move": "greet",
+      "once": true,
+      "change": { "trust": 3 }
+    },
+    {
+      "id": "probe_problem_trust",
+      "move": "probe_problem",
+      "change": { "trust": 4 }
+    },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "prepay_trade",
+      "if": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["prepay_offered"]
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "insult_penalty",
+      "move": "insult",
+      "change": { "trust": -12, "pressure": 10, "patience": -3 }
+    },
+    {
+      "id": "walkout_threat_pressure",
+      "move": "walkout_threat",
+      "change": { "pressure": 15, "trust": -5 }
+    }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Поздороваться и назвать стартовые условия: 230 ₽, предоплата, 20 апреля.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Назвать стартовое предложение уверенно, без извинений"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, посчитаю."],
+      "fallback_lines": ["Наше предложение — {price} за метр, {payment}, отгрузка {delivery_date}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_prepay", "when": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за цену",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, ссылаться на качество и сроки.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 10, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "payment", "can_move": true, "stop_at": { "value": "deferral_30" }, "requires_reciprocity": false, "unlock_cost": 20 },
+        { "issue": "delivery_date", "can_move": true, "step": 2, "stop_at": { "value": "2027-04-12" }, "requires_reciprocity": true, "unlock_cost": 25 }
+      ],
+      "may_reveal": ["warehouse_shortage"],
+      "fillers": ["Слушаю.", "Ага, понял."],
+      "fallback_lines": ["Пока держим {price} за метр."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_prepay", "when": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_prepay",
+      "label": "Размен: предоплата за цену",
+      "directive": {
+        "goal": "За предоплату уступать в цене крупными шагами, подавая уступку как одолжение.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Условная уступка: «если вы — то и я»"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 10, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "delivery_date", "can_move": true, "step": 2, "stop_at": { "value": "2027-04-12" }, "requires_reciprocity": true, "unlock_cost": 25 }
+      ],
+      "may_reveal": ["warehouse_shortage"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["При предоплате готовы на {price} за метр."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задет",
+      "directive": {
+        "goal": "Коротко показать, что задет; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 5, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["warehouse_shortage", "cash_gap"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {price} за метр, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_prepay", "when": { "flag": "prepay_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: {price} за метр."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": {
+        "goal": "Подтвердить условия сделки и попрощаться.",
+        "allowed_intents": ["close"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Отлично, фиксируем условия."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": {
+        "goal": "Вежливо завершить разговор без сделки.",
+        "allowed_intents": ["leave"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда не договорились."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Сделка заключена на условиях, которые выходят за пределы полномочий участника — решение потребует отдельного согласования."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Сделки нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — партия не закуплена."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Эталонная закупка",
+      "when": {
+        "all": [
+          { "offer": "price", "side": "opponent", "op": "lte", "value": 190 },
+          { "fact": "warehouse_shortage", "revealed": true },
+          { "meter": "trust", "op": "gte", "value": 40 }
+        ]
+      },
+      "epilogue": "Цена не выше 190 ₽ за метр, нехватка сечения раскрыта заранее — поставка пройдёт без сюрпризов."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Сделка заключена в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "price": { "opponent_start": 210, "limit_shift": -10 } },
+      "fact_conditions": { "cash_gap": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "warehouse_shortage": "volunteers" },
+      "opponent_manner": "Игорь дружелюбнее обычного и сам намекает на уступки.",
+      "extra_tactics": [],
+      "hints": ["Спросите про сечение кабеля на складе."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "price": { "opponent_start": 245, "limit_shift": 8 } },
+      "fact_conditions": {
+        "warehouse_shortage": { "all": [{ "move": "probe_compatibility", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 20 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Игорь резче обычного и перебивает.",
+      "extra_tactics": ["Цена действует только сегодня."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте про кабель.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Черновик для внутренних тестов пакета scenariodoc.",
+    "notes": ""
+  }
+}

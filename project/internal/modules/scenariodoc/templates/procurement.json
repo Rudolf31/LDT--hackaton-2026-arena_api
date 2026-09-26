@@ -1,0 +1,404 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "reducers_deadline",
+    "version": 0,
+    "title": "Закупка редукторов к сроку монтажа",
+    "mode": "training",
+    "sphere": "procurement",
+    "negotiation_type": "mixed",
+    "tags": ["закупка", "срок", "оборудование"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Через три недели начинается монтаж линии, а партия редукторов ещё не заказана. Все цены в разговоре — за штуку, без НДС, с доставкой до вашей площадки.",
+    "participant_role": "Специалист по закупкам дирекции по снабжению",
+    "goal": "Закупить 120 редукторов по цене как можно ниже, с отгрузкой не позже 10 марта",
+    "constraints": ["Полную предоплату можно согласовать самостоятельно, только если цена не выше 195 ₽ за штуку"],
+    "fallback_option": "«Кама-Привод»: 208 ₽ за штуку, но отгрузка через 55 дней",
+    "known_facts": ["В прошлом году покупали похожую партию по 184 ₽ за штуку"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Сергей Бурмистров",
+      "role": "Коммерческий директор",
+      "organization": "ООО «Промтехснаб»",
+      "speech_manner": "Говорит коротко и по делу, любит цифры и не любит, когда его торопят.",
+      "voice": { "voice_id": "ru_male_low_02", "speed": 0.96 },
+      "appearance": { "avatar_id": "businessman_44" }
+    },
+    "brief": {
+      "character": "Жёсткий, но честный торговец: уважает собеседника, который приходит с цифрами, и не любит пустых угроз.",
+      "goals": ["Получить деньги до конца месяца", "Продать партию целиком, не размениваясь на мелкие остатки"],
+      "interests": [
+        { "id": "cash_now", "label": "Получить деньги как можно раньше", "weight": 1.0, "description": "Любой довод, который приближает оплату, для Сергея самый ценный." },
+        { "id": "sell_whole_lot", "label": "Продать партию целиком", "weight": 0.7, "description": "Сергей не хочет оставаться с непроданным остатком на складе." }
+      ],
+      "fallback_option": "Заказ из Тольятти: 80 штук по 21 000 ₽, но только в мае",
+      "never_concede": ["Гарантия больше 18 месяцев"],
+      "concede_for": ["Полная предоплата: отсрочка стоит компании около 1 700 ₽ на штуку"],
+      "what_offends": "Смехотворно низкая цена без объяснений — Сергей воспринимает это как неуважение.",
+      "unknown_answer": "Скажет, что уточнит у склада и логистики."
+    }
+  },
+  "issues": [
+    {
+      "id": "price",
+      "label": "Цена за штуку",
+      "type": "number",
+      "unit": "₽ за штуку",
+      "direction": "lower_better",
+      "limits_depend_on": "payment",
+      "participant": {
+        "target": 180,
+        "limit": { "value": 210, "by_option": { "prepay_100": 195 } }
+      },
+      "opponent": {
+        "start": 230,
+        "limit": { "value": 200, "by_option": { "prepay_100": 185 } }
+      }
+    },
+    {
+      "id": "payment",
+      "label": "Порядок оплаты",
+      "type": "choice",
+      "options": [
+        { "id": "prepay_100", "label": "полная предоплата" },
+        { "id": "deferral_45", "label": "отсрочка 45 дней" }
+      ],
+      "participant": {
+        "target": "deferral_45",
+        "acceptable": ["prepay_100", "deferral_45"]
+      },
+      "opponent": {
+        "start": "prepay_100",
+        "acceptable": ["prepay_100", "deferral_45"]
+      }
+    },
+    {
+      "id": "delivery_date",
+      "label": "Дата отгрузки",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-03-01",
+        "limit": { "value": "2027-03-10" }
+      },
+      "opponent": {
+        "start": "2027-03-20",
+        "limit": { "value": "2027-03-08" }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "prepay_offered", "label": "Участник предложил полную предоплату" },
+      { "id": "bluff_suspected", "label": "Сергей заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "old_revision",
+      "label": "На складе редукторы старой ревизии с другим фланцем",
+      "text": "Сергей признаёт: 140 редукторов на складе — ревизии «А», фланец под них не совпадает с чертежами заказчика без переходников.",
+      "reveal_when": { "move": "probe_revision", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "cash_gap",
+      "label": "У Сергея кассовый разрыв к концу месяца",
+      "text": "Сергею нужно закрыть платёж по кредиту до конца месяца — отсюда такая настойчивость с предоплатой.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_revision",
+      "parent": "probe_problem",
+      "label": "Вопрос о ревизии и фланце",
+      "description": "Вопрос о том, какая ревизия редукторов на складе и подойдёт ли фланец под чертежи заказчика.",
+      "examples": [
+        "Какая ревизия у редукторов на складе?",
+        "Фланец подойдёт под наши фундаментные плиты без переделок?",
+        "Вся партия одной ревизии или есть отличия?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 1.0,
+    "market_price": 0.8,
+    "past_contract": 0.7,
+    "spec_document": 0.6,
+    "third_party": 0.5,
+    "policy_rule": 0.4,
+    "own_constraint": 0.3,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "prepay_trade",
+      "if": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["prepay_offered"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Поздороваться и назвать стартовые условия: 230 ₽, предоплата, 20 марта.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Назвать стартовое предложение уверенно, без извинений"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, посчитаю."],
+      "fallback_lines": ["Наше предложение — {price} за штуку, {payment}, отгрузка {delivery_date}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_prepay", "when": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за цену",
+      "directive": {
+        "goal": "Торговаться небольшими шагами. Если ссылаются на конкурента — спросить, в какой срок тот отгружает.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 10, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "payment", "can_move": true, "stop_at": { "value": "deferral_45" }, "requires_reciprocity": false, "unlock_cost": 20 },
+        { "issue": "delivery_date", "can_move": true, "step": 2, "stop_at": { "value": "2027-03-12" }, "requires_reciprocity": true, "unlock_cost": 25 }
+      ],
+      "may_reveal": ["old_revision"],
+      "fillers": ["Слушаю.", "Ага, понял."],
+      "fallback_lines": ["Пока держим {price} за штуку."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_prepay", "when": { "offer": "payment", "side": "participant", "scope": "this_reply", "op": "is", "value": "prepay_100" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_prepay",
+      "label": "Размен: предоплата за цену",
+      "directive": {
+        "goal": "За предоплату уступать в цене крупными шагами, подавая уступку как одолжение.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Условная уступка: «если вы — то и я»"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 10, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "delivery_date", "can_move": true, "step": 2, "stop_at": { "value": "2027-03-12" }, "requires_reciprocity": true, "unlock_cost": 25 }
+      ],
+      "may_reveal": ["old_revision"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["При предоплате готовы на {price} за штуку."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задет",
+      "directive": {
+        "goal": "Коротко показать, что задет; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Называть себестоимость"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 5, "stop_at": { "value": 205, "by_option": { "prepay_100": 190 } }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["old_revision", "cash_gap"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {price} за штуку, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_prepay", "when": { "flag": "prepay_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: {price} за штуку."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить условия сделки и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Отлично, фиксируем условия."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": { "goal": "Вежливо завершить разговор без сделки.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда не договорились."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Сделка заключена на условиях, которые выходят за пределы полномочий участника — решение потребует отдельного согласования."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Сделки нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — партия не закуплена."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Эталонная закупка",
+      "when": {
+        "all": [
+          { "offer": "price", "side": "opponent", "op": "lte", "value": 190 },
+          { "fact": "old_revision", "revealed": true },
+          { "meter": "trust", "op": "gte", "value": 40 }
+        ]
+      },
+      "epilogue": "Цена не выше 190 ₽ за штуку, вопрос ревизии снят заранее — экономия к бюджету не меньше 288 000 ₽, поставка пройдёт без сюрпризов на монтаже."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Сделка заключена в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "price": { "opponent_start": 210, "limit_shift": -10 } },
+      "fact_conditions": { "cash_gap": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "old_revision": "volunteers" },
+      "opponent_manner": "Сергей дружелюбнее обычного и сам намекает на уступки.",
+      "extra_tactics": [],
+      "hints": ["Спросите про ревизию редукторов на складе."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "price": { "opponent_start": 245, "limit_shift": 8 } },
+      "fact_conditions": {
+        "old_revision": { "all": [{ "move": "probe_revision", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 20 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Сергей резче обычного и перебивает.",
+      "extra_tactics": ["Цена действует только сегодня."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте про редукторы.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон закупки для библиотеки сценариев.",
+    "notes": "Главная мина сценария — редукторы старой ревизии на складе, о которых Сергей не расскажет сам."
+  }
+}

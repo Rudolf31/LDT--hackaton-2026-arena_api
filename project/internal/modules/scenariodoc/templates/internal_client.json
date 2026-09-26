@@ -1,0 +1,405 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "internal_client_conflict",
+    "version": 0,
+    "title": "Конфликт с внутренним заказчиком",
+    "mode": "training",
+    "sphere": "internal_client",
+    "negotiation_type": "integrative",
+    "tags": ["внутренний заказчик", "срыв срока", "конфликт"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Ваша команда должна была сдать доработку внутренней системы неделю назад. Руководитель отдела-заказчика недоволен и требует объяснений и нового срока.",
+    "participant_role": "Руководитель проекта на стороне исполнителя",
+    "goal": "Согласовать новый срок как можно позже и объём доработок как можно уже, сохранив отношения с заказчиком",
+    "constraints": ["Срок позже 20 апреля вы можете согласовать сами, только если объём — по приоритетным пунктам, а не полный"],
+    "fallback_option": "Эскалация на директора по продукту, если разговор не сложится",
+    "known_facts": ["В прошлом релизе похожая доработка заняла на две недели больше плана"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Наталья Ким",
+      "role": "Руководитель отдела продаж",
+      "organization": "та же компания, внутренний заказчик",
+      "speech_manner": "Говорит быстро и напористо, ссылается на цифры потерь.",
+      "voice": { "voice_id": "ru_female_mid_02", "speed": 1.05 },
+      "appearance": { "avatar_id": "businesswoman_31" }
+    },
+    "brief": {
+      "character": "Требовательный, но не злопамятный внутренний заказчик: если увидит конкретный план, отступает от жёсткой позиции.",
+      "goals": ["Получить рабочую доработку как можно раньше", "Не выглядеть виноватой перед своим руководством за задержку"],
+      "interests": [
+        { "id": "not_look_bad", "label": "Не выглядеть виноватой перед своим руководством", "weight": 1.0, "description": "Любой довод, который даёт Наталье что показать руководству, для неё самый ценный." },
+        { "id": "working_result", "label": "Получить рабочий результат, а не отписку", "weight": 0.5, "description": "Наталье важно, чтобы доработка реально решала проблему её отдела." }
+      ],
+      "fallback_option": "Эскалация на директора по продукту с требованием пересмотреть приоритеты команды исполнителя",
+      "never_concede": ["Полный отказ от доработки"],
+      "concede_for": ["Чёткий план по приоритетным пунктам снимает половину напряжения"],
+      "what_offends": "Попытка переложить вину на отдел продаж без объяснений — Наталья считает это уклонением от ответственности.",
+      "unknown_answer": "Скажет, что уточнит детали у своей команды и вернётся с ответом."
+    }
+  },
+  "issues": [
+    {
+      "id": "fix_deadline",
+      "label": "Новый срок сдачи",
+      "type": "date",
+      "direction": "higher_better",
+      "participant": {
+        "target": "2027-05-01",
+        "limit": { "value": "2027-04-01" }
+      },
+      "opponent": {
+        "start": "2027-03-01",
+        "limit": { "value": "2027-04-20" }
+      }
+    },
+    {
+      "id": "scope",
+      "label": "Объём доработок",
+      "type": "choice",
+      "options": [
+        { "id": "full_scope", "label": "полный объём доработок" },
+        { "id": "priority_scope", "label": "доработки по приоритетным пунктам" }
+      ],
+      "participant": {
+        "target": "priority_scope",
+        "acceptable": ["full_scope", "priority_scope"]
+      },
+      "opponent": {
+        "start": "full_scope",
+        "acceptable": ["full_scope", "priority_scope"]
+      }
+    },
+    {
+      "id": "escalation",
+      "label": "Эскалация руководству",
+      "type": "choice",
+      "options": [
+        { "id": "with_escalation", "label": "с эскалацией руководству" },
+        { "id": "no_escalation", "label": "без эскалации руководству" }
+      ],
+      "participant": {
+        "target": "no_escalation",
+        "acceptable": ["no_escalation", "with_escalation"]
+      },
+      "opponent": {
+        "start": "with_escalation",
+        "acceptable": ["with_escalation", "no_escalation"]
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 40, "min": 0, "max": 100 },
+    "pressure": { "initial": 20, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "plan_offered", "label": "Участник предложил конкретный план по приоритетным пунктам" },
+      { "id": "bluff_suspected", "label": "Наталья заподозрила, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "client_delay_cause",
+      "label": "Реальная причина срыва — на стороне заказчика",
+      "text": "Наталья признаёт: её команда сама на две недели задержала передачу финальных требований — это тоже часть причины срыва.",
+      "reveal_when": { "move": "probe_delay_cause", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "manager_pressure",
+      "label": "На Наталью тоже давит её руководство",
+      "text": "На Наталью давит её собственное руководство — ей нужно показать хоть какой-то прогресс уже на этой неделе.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_delay_cause",
+      "parent": "probe_problem",
+      "label": "Вопрос о причине срыва",
+      "description": "Вопрос о том, что именно стало причиной срыва срока и на чьей стороне были задержки.",
+      "examples": [
+        "Когда вы передали нам финальные требования?",
+        "Что именно стало причиной задержки с вашей стороны?",
+        "Были ли изменения в требованиях уже после старта работ?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.3,
+    "market_price": 0.3,
+    "past_contract": 0.7,
+    "spec_document": 0.9,
+    "third_party": 0.5,
+    "policy_rule": 0.6,
+    "own_constraint": 0.4,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "plan_trade",
+      "if": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["plan_offered"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Открыть разговор напористо: назвать срок 1 марта, полный объём, с угрозой эскалации.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Обвинять команду исполнителя без фактов"],
+        "tactics": ["Назвать стартовое требование уверенно"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, слушаю."],
+      "fallback_lines": ["Нам нужно {fix_deadline}, {scope}, {escalation}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_plan", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за срок",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, ссылаться на потери отдела продаж.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Обвинять команду исполнителя без фактов"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "fix_deadline", "can_move": true, "step": 3, "stop_at": { "value": "2027-04-10" }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "scope", "can_move": true, "stop_at": { "value": "priority_scope" }, "requires_reciprocity": false, "unlock_cost": 25 },
+        { "issue": "escalation", "can_move": true, "stop_at": { "value": "no_escalation" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["client_delay_cause"],
+      "fillers": ["Слушаю.", "Понимаю."],
+      "fallback_lines": ["Пока держим {fix_deadline}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_plan", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_plan",
+      "label": "Размен: план за срок",
+      "directive": {
+        "goal": "За конкретный план по приоритетным пунктам уступать в сроке крупными шагами.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Обвинять команду исполнителя без фактов"],
+        "tactics": ["Условная уступка: «если вы дадите план — то и я сдвину срок»"]
+      },
+      "offer_policy": [
+        { "issue": "fix_deadline", "can_move": true, "step": 3, "stop_at": { "value": "2027-04-10" }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "escalation", "can_move": true, "stop_at": { "value": "no_escalation" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["client_delay_cause"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["С таким планом готовы на {fix_deadline}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задета",
+      "directive": {
+        "goal": "Коротко показать, что задета грубостью; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрлась",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Обвинять команду исполнителя без фактов"],
+        "tactics": ["Повторять последнее требование"]
+      },
+      "offer_policy": [
+        { "issue": "fix_deadline", "can_move": true, "step": 2, "stop_at": { "value": "2027-04-15" }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["client_delay_cause", "manager_pressure"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы настаиваем на {fix_deadline}, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_plan", "when": { "flag": "plan_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что это предельное условие"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше предельное условие: {fix_deadline}."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Договорённость",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить новый срок и объём, попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Хорошо, фиксируем новый срок."]
+    },
+    {
+      "id": "walkout",
+      "label": "Эскалация",
+      "terminal": true,
+      "directive": { "goal": "Завершить разговор без соглашения.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда я эскалирую вопрос руководству."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Условия соглашения выходят за пределы полномочий участника — нужно отдельное согласование с руководителем."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Соглашения нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — вопрос уходит на эскалацию."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Конфликт снят по существу",
+      "when": {
+        "all": [
+          { "offer": "fix_deadline", "side": "opponent", "op": "lte", "value": "2027-04-15" },
+          { "offer": "scope", "side": "opponent", "op": "is", "value": "priority_scope" },
+          { "fact": "client_delay_cause", "revealed": true }
+        ]
+      },
+      "epilogue": "Срок не позже 15 апреля, объём — по приоритетным пунктам, и причина срыва обсуждена открыто с обеих сторон — отношения с заказчиком сохранены."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Соглашение достигнуто в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 50,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "fix_deadline": { "opponent_start": "2027-03-15", "limit_shift": -5 } },
+      "fact_conditions": { "manager_pressure": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "client_delay_cause": "volunteers" },
+      "opponent_manner": "Наталья дружелюбнее обычного и сама предлагает компромисс.",
+      "extra_tactics": [],
+      "hints": ["Спросите, когда заказчик передал финальные требования."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 28,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "fix_deadline": { "opponent_start": "2027-02-20", "limit_shift": 5 } },
+      "fact_conditions": {
+        "client_delay_cause": { "all": [{ "move": "probe_delay_cause", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 25 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Наталья резче обычного и чаще угрожает эскалацией.",
+      "extra_tactics": ["Решение нужно до конца дня."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте вернёмся к срокам.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон конфликта с внутренним заказчиком для библиотеки сценариев.",
+    "notes": "Предмет «Новый срок сдачи» — higher_better: участнику выгоднее более поздний срок, оппоненту — ранний. Предел оппонента (20 апреля) выше его старта (1 марта) — прямая проверка FR-SC-13 на дате, а не на числе."
+  }
+}

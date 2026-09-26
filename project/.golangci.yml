@@ -1,0 +1,34 @@
+version: "2"
+
+# Q-08 / D-18: линтер границ модулей. Модуль — один плоский пакет
+# (contract.go, module.go, transport.go, service.go, store.go в одной
+# директории), поэтому у Go нет способа спрятать store/service от чужого
+# импорта отдельным пакетом — это держат строчные (неэкспортируемые) имена
+# в store.go и service.go, а публичный контракт — заглавные имена в
+# contract.go. depguard проверяет то, что визитностью не удержать: слой
+# store и слой transport не должны сами дотягиваться до чужого модуля —
+# это дело service.go (правила использования, транзакции, запись в
+# журнал — CLAUDE.md, «Устройство модуля») и module.go (сборка: получает
+# чужие контракты как зависимости на входе). Импорт корня чужого модуля
+# из contract.go, module.go, service.go и тестов — разрешённый, ожидаемый
+# путь (arena-portal-backend-architecture.md 3.3): так settings пишет
+# в audit, sessions читает people и т.д.
+linters:
+  default: none
+  enable:
+    - depguard
+  settings:
+    depguard:
+      rules:
+        modules-store-no-cross-import:
+          files:
+            - "**/internal/modules/*/store.go"
+          deny:
+            - pkg: "arena-portal-backend/internal/modules"
+              desc: "store не знает правил и не вызывает чужие модули — только свой SQL (CLAUDE.md, «Устройство модуля»); кросс-модульный вызов делает service.go"
+        modules-transport-no-cross-import:
+          files:
+            - "**/internal/modules/*/transport.go"
+          deny:
+            - pkg: "arena-portal-backend/internal/modules"
+              desc: "transport не знает HTTP-слоя чужого модуля и не вызывает его напрямую — только свою службу (CLAUDE.md, «Устройство модуля»)"

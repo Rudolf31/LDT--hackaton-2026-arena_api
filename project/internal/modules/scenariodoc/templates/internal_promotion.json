@@ -1,0 +1,403 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "internal_promotion_case",
+    "version": 0,
+    "title": "Согласование повышения внутри компании",
+    "mode": "training",
+    "sphere": "internal_promotion",
+    "negotiation_type": "mixed",
+    "tags": ["карьера", "повышение", "HR"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Вы третий год ведёте проекты как ведущий специалист и хотите обсудить повышение до руководителя группы. Разговор — с директором по персоналу, решение по грейду и окладу за ней.",
+    "participant_role": "Ведущий специалист, претендующий на повышение до руководителя группы",
+    "goal": "Добиться повышения до руководителя группы с окладом не ниже цели и датой вступления в должность не позже срока",
+    "constraints": ["Повышение до «руководителя группы» вы можете утвердить сами, только если оклад не выше 155 000 ₽ в месяц"],
+    "fallback_option": "Предложение от другого отдела компании: 150 000 ₽, но без роста в течение года",
+    "known_facts": ["В прошлом квартале коллегу на аналогичной позиции повысили с окладом 140 000 ₽"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Мария Северова",
+      "role": "Директор по персоналу",
+      "organization": "та же компания, HR-дирекция",
+      "speech_manner": "Говорит взвешенно, часто ссылается на политику компании и грейдовую сетку.",
+      "voice": { "voice_id": "ru_female_mid_01", "speed": 1.0 },
+      "appearance": { "avatar_id": "businesswoman_20" }
+    },
+    "brief": {
+      "character": "Строгий, но справедливый HR-руководитель: ценит аргументы через политику компании больше, чем внешние предложения.",
+      "goals": ["Удержать ценного сотрудника", "Не выйти за бюджет фонда оплаты труда в этом квартале"],
+      "interests": [
+        { "id": "retain_talent", "label": "Удержать сотрудника в компании", "weight": 1.0, "description": "Мария не хочет терять ведущего специалиста и открывать дорогой внешний поиск." },
+        { "id": "stay_in_budget", "label": "Не выйти за бюджет фонда оплаты труда", "weight": 0.5, "description": "Любой довод, который держится в рамках утверждённого бюджета, для Марии весомее внешних предложений." }
+      ],
+      "fallback_option": "Внешний кандидат на ту же позицию с окладом 145 000 ₽, но нужно два месяца на выход",
+      "never_concede": ["Грейд выше согласованного директором дирекции"],
+      "concede_for": ["Письменная рекомендация руководителя проекта ускоряет решение"],
+      "what_offends": "Угроза уволиться без объяснений — Мария считает это манипуляцией, а не аргументом.",
+      "unknown_answer": "Скажет, что уточнит у финансового директора и вернётся с ответом."
+    }
+  },
+  "issues": [
+    {
+      "id": "salary",
+      "label": "Оклад в месяц",
+      "type": "number",
+      "unit": "₽ в месяц",
+      "direction": "higher_better",
+      "participant": {
+        "target": 165000,
+        "limit": { "value": 150000 }
+      },
+      "opponent": {
+        "start": 135000,
+        "limit": { "value": 160000 }
+      }
+    },
+    {
+      "id": "grade",
+      "label": "Должность",
+      "type": "choice",
+      "options": [
+        { "id": "team_lead", "label": "руководитель группы" },
+        { "id": "senior_lead", "label": "ведущий руководитель группы" }
+      ],
+      "participant": {
+        "target": "senior_lead",
+        "acceptable": ["team_lead", "senior_lead"]
+      },
+      "opponent": {
+        "start": "team_lead",
+        "acceptable": ["team_lead", "senior_lead"]
+      }
+    },
+    {
+      "id": "start_date",
+      "label": "Дата вступления в должность",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-02-01",
+        "limit": { "value": "2027-03-01" }
+      },
+      "opponent": {
+        "start": "2027-05-01",
+        "limit": { "value": "2027-02-15" }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "recommendation_offered", "label": "Участник предложил письменную рекомендацию руководителя проекта" },
+      { "id": "bluff_suspected", "label": "Мария заподозрила, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "budget_almost_gone",
+      "label": "Бюджет на повышения в этом квартале почти исчерпан",
+      "text": "Мария признаёт: бюджет на повышения в этом квартале почти исчерпан, у неё есть запас только на один оклад выше 155 000 ₽.",
+      "reveal_when": { "move": "probe_budget", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "external_search",
+      "label": "Мария уже присматривает внешнего кандидата на ту же позицию",
+      "text": "Мария уже начала присматривать внешнего кандидата на позицию руководителя группы — на случай, если разговор не сложится.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_budget",
+      "parent": "probe_problem",
+      "label": "Вопрос о бюджете на повышения",
+      "description": "Вопрос о том, какой бюджет заложен на повышения и хватает ли фонда оплаты труда.",
+      "examples": [
+        "Какой бюджет заложен на повышения в этом квартале?",
+        "Хватит ли фонда оплаты труда на такой оклад?",
+        "Насколько ограничен бюджет на повышения сейчас?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.3,
+    "market_price": 0.6,
+    "past_contract": 0.7,
+    "spec_document": 0.4,
+    "third_party": 0.5,
+    "policy_rule": 0.9,
+    "own_constraint": 0.5,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "recommendation_trade",
+      "if": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["recommendation_offered"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Поздороваться и назвать стартовые условия: оклад 135 000 ₽, должность «руководитель группы», выход 1 мая.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Называть точные цифры бюджета отдела"],
+        "tactics": ["Назвать стартовое предложение уверенно, без извинений"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, посмотрим ваш случай."],
+      "fallback_lines": ["Наше предложение — {salary} в месяц, {grade}, выход {start_date}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_recommendation", "when": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за оклад",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, ссылаться на грейдовую сетку и бюджет.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Называть точные цифры бюджета отдела"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "salary", "can_move": true, "step": 5000, "stop_at": { "value": 155000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "grade", "can_move": true, "stop_at": { "value": "senior_lead" }, "requires_reciprocity": false, "unlock_cost": 25 },
+        { "issue": "start_date", "can_move": true, "step": 5, "stop_at": { "value": "2027-02-20" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["budget_almost_gone"],
+      "fillers": ["Слушаю.", "Понимаю."],
+      "fallback_lines": ["Пока держим {salary} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_recommendation", "when": { "argument": { "evidence": ["own_constraint", "third_party"] }, "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_recommendation",
+      "label": "Размен: рекомендация за оклад",
+      "directive": {
+        "goal": "За письменную рекомендацию уступать в окладе крупными шагами, подавая уступку как одолжение.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Называть точные цифры бюджета отдела"],
+        "tactics": ["Условная уступка: «если вы принесёте рекомендацию — то и я пересмотрю оклад»"]
+      },
+      "offer_policy": [
+        { "issue": "salary", "can_move": true, "step": 5000, "stop_at": { "value": 155000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "start_date", "can_move": true, "step": 5, "stop_at": { "value": "2027-02-20" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["budget_almost_gone"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["С рекомендацией готовы на {salary} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задета",
+      "directive": {
+        "goal": "Коротко показать, что задета угрозой; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрлась",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Называть точные цифры бюджета отдела"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "salary", "can_move": true, "step": 2000, "stop_at": { "value": 158000 }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["budget_almost_gone", "external_search"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {salary} в месяц, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_recommendation", "when": { "flag": "recommendation_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: {salary} в месяц."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить условия повышения и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Отлично, фиксируем условия повышения."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": { "goal": "Вежливо завершить разговор без решения.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда вернёмся к этому позже."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Условия сделки выходят за пределы полномочий участника — решение потребует отдельного согласования с руководителем."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Решения нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — вопрос повышения остался открытым."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Повышение с максимальным пакетом",
+      "when": {
+        "all": [
+          { "offer": "salary", "side": "opponent", "op": "gte", "value": 158000 },
+          { "offer": "grade", "side": "opponent", "op": "is", "value": "senior_lead" },
+          { "fact": "budget_almost_gone", "revealed": true }
+        ]
+      },
+      "epilogue": "Оклад не ниже 158 000 ₽, должность «ведущий руководитель группы», и вопрос бюджета обсуждён открыто — решение выглядит устойчивым перед финансовым директором."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Повышение согласовано в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "salary": { "opponent_start": 145000, "limit_shift": -10000 } },
+      "fact_conditions": { "external_search": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "budget_almost_gone": "volunteers" },
+      "opponent_manner": "Мария дружелюбнее обычного и сама намекает на уступки.",
+      "extra_tactics": [],
+      "hints": ["Спросите про бюджет на повышения в этом квартале."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "salary": { "opponent_start": 125000, "limit_shift": 6000 } },
+      "fact_conditions": {
+        "budget_almost_gone": { "all": [{ "move": "probe_budget", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 20 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Мария резче обычного и чаще ссылается на регламент.",
+      "extra_tactics": ["Решение нужно согласовать до конца недели."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте вернёмся к условиям повышения.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон согласования внутреннего повышения для библиотеки сценариев.",
+    "notes": "Вес «внутреннего правила» выше веса «предложения конкурента» (FR-SC-12) — HR ценит внутреннюю политику выше внешних предложений. Предел оклада оппонента (160 000) выше его старта (135 000) — направление higher_better (FR-SC-13)."
+  }
+}

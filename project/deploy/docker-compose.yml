@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?задайте POSTGRES_SUPERUSER_PASSWORD в .env}
+      POSTGRES_DB: ${POSTGRES_DB:-arena}
+      ARENA_APP_PASSWORD: ${ARENA_APP_PASSWORD:?задайте ARENA_APP_PASSWORD в .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../db/schema/arena-db.sql:/docker-entrypoint-initdb.d/01-arena-db.sql:ro
+      - ./init/02-app-role-password.sh:/docker-entrypoint-initdb.d/02-app-role-password.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "5432:5432"
+
+  portal:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    environment:
+      ARENA_DATABASE_URL: postgres://arena_app:${ARENA_APP_PASSWORD:?задайте ARENA_APP_PASSWORD в .env}@postgres:5432/${POSTGRES_DB:-arena}?sslmode=disable
+      ARENA_MASTER_KEY: ${ARENA_MASTER_KEY:?задайте ARENA_MASTER_KEY в .env}
+      ARENA_CODE_HMAC_SECRET: ${ARENA_CODE_HMAC_SECRET:?задайте ARENA_CODE_HMAC_SECRET в .env}
+      ARENA_LISTEN: ${ARENA_LISTEN:-:8080}
+      ARENA_STT_URL: ${ARENA_STT_URL:-}
+      ARENA_STT_KEY: ${ARENA_STT_KEY:-}
+      ARENA_STT_MODEL: ${ARENA_STT_MODEL:-}
+      ARENA_GEN_URL: ${ARENA_GEN_URL:-}
+      ARENA_GEN_KEY: ${ARENA_GEN_KEY:-}
+      ARENA_GEN_MODEL: ${ARENA_GEN_MODEL:-}
+      ARENA_DEMO: ${ARENA_DEMO:-true}
+      DEMO_MODEL_KEYS: ${DEMO_MODEL_KEYS:-false}
+      ARENA_LOG_LEVEL: ${ARENA_LOG_LEVEL:-info}
+      ARENA_COOKIE_SECURE: ${ARENA_COOKIE_SECURE:-true}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

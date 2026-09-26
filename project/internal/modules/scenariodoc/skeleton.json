@@ -1,0 +1,280 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "blank_scenario",
+    "version": 0,
+    "title": "Новый сценарий",
+    "mode": "training",
+    "sphere": "other",
+    "negotiation_type": "distributive",
+    "tags": [],
+    "origin": "manual"
+  },
+  "brief": {
+    "situation": "Опишите здесь легенду: что происходит и почему нужен разговор.",
+    "participant_role": "Кто участник в этой истории",
+    "goal": "Чего участнику нужно добиться",
+    "constraints": ["Опишите ограничения участника словами"],
+    "fallback_option": "Опишите запасной вариант участника",
+    "known_facts": [],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Имя Фамилия",
+      "role": "Должность оппонента",
+      "organization": "Организация оппонента",
+      "speech_manner": "Опишите, как оппонент говорит.",
+      "voice": { "voice_id": "ru_male_low_01", "speed": 1.0 },
+      "appearance": { "avatar_id": "businessman_10" }
+    },
+    "brief": {
+      "character": "Опишите, кто оппонент и как себя ведёт.",
+      "goals": ["Опишите главную цель оппонента"],
+      "interests": [
+        { "id": "main_interest", "label": "Главный интерес оппонента", "weight": 0.7, "description": "Опишите, что для оппонента ценно." }
+      ],
+      "fallback_option": "Опишите запасной вариант оппонента",
+      "never_concede": [],
+      "concede_for": ["Опишите, за что оппонент готов уступить"],
+      "what_offends": "Опишите, что оппонента заденет.",
+      "unknown_answer": "Опишите, как оппонент отвечает, когда не знает ответа."
+    }
+  },
+  "issues": [
+    {
+      "id": "terms_value",
+      "label": "Условие сделки",
+      "type": "number",
+      "unit": "у.е.",
+      "direction": "lower_better",
+      "participant": {
+        "target": 100,
+        "limit": { "value": 150 }
+      },
+      "opponent": {
+        "start": 200,
+        "limit": { "value": 120 }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "bluff_suspected", "label": "Оппонент заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "hidden_detail",
+      "label": "Скрытая деталь, о которой оппонент не говорит сам",
+      "text": "Опишите здесь скрытый факт: то, что оппонент знает, но не скажет, пока условие не выполнено.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 65 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [],
+  "evidence_weights": {
+    "competitor_quote": 0.5,
+    "market_price": 0.5,
+    "past_contract": 0.5,
+    "spec_document": 0.5,
+    "third_party": 0.5,
+    "policy_rule": 0.5,
+    "own_constraint": 0.5,
+    "opinion": 0.5,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    {
+      "id": "criteria_credit",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "credit": 30 }
+    },
+    {
+      "id": "doubt_on_bluff",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -10, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Опишите, как оппонент открывает разговор.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["Наше условие — {terms_value}."],
+      "transitions": [
+        { "to": "hardened", "when": { "move": "insult", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг",
+      "directive": {
+        "goal": "Опишите, как оппонент торгуется на этом этапе.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "offer_policy": [
+        { "issue": "terms_value", "can_move": true, "step": 10, "stop_at": { "value": 140 }, "requires_reciprocity": false, "unlock_cost": 30 }
+      ],
+      "may_reveal": ["hidden_detail"],
+      "fillers": ["Слушаю."],
+      "fallback_lines": ["Пока держим {terms_value}."],
+      "transitions": [
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Опишите, как оппонент держится, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "offer_policy": [
+        { "issue": "terms_value", "can_move": true, "step": 5, "stop_at": { "value": 130 }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["hidden_detail"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {terms_value}, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": [],
+        "tactics": []
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: {terms_value}."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить условия сделки и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Отлично, фиксируем условия."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": { "goal": "Вежливо завершить разговор без сделки.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда не договорились."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Опишите здесь, что произошло, если сделка вышла за пределы полномочий участника."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Сделки нет",
+      "when": { "deal": "none" },
+      "epilogue": "Опишите здесь, что произошло, если сделки не было."
+    },
+    {
+      "id": "good_deal",
+      "rank": "A",
+      "title": "Хорошая сделка",
+      "when": { "all": [{ "offer": "terms_value", "side": "opponent", "op": "lte", "value": 130 }] },
+      "epilogue": "Опишите здесь хороший исход."
+    },
+    {
+      "id": "base_deal",
+      "rank": "C",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Опишите здесь обычный исход."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": {},
+      "fact_conditions": {},
+      "fact_styles": {},
+      "opponent_manner": "",
+      "extra_tactics": [],
+      "hints": []
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": {},
+      "fact_conditions": {},
+      "fact_styles": {},
+      "opponent_manner": "",
+      "extra_tactics": [],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не поддавайтесь на провокации, продолжайте разговор по существу.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "",
+    "notes": ""
+  }
+}

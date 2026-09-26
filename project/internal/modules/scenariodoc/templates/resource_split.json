@@ -1,0 +1,403 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "resource_split_case",
+    "version": 0,
+    "title": "Дележ ресурса между подразделениями",
+    "mode": "training",
+    "sphere": "resource_split",
+    "negotiation_type": "distributive",
+    "tags": ["ресурс", "приоритеты", "внутренние переговоры"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Оба ваших направления претендуют на общий пул инженеров разработки на следующий квартал, а пул один на двоих. Нужно договориться о доле и очереди.",
+    "participant_role": "Руководитель направления А",
+    "goal": "Получить как можно больше часов общего пула с высоким приоритетом и как можно раньше",
+    "constraints": ["Долю выше 320 часов в месяц вы можете согласовать сами, только если приоритет — высокий"],
+    "fallback_option": "Нанять подрядчика со стороны на недостающие часы, но это на 40% дороже",
+    "known_facts": ["В прошлом квартале направление Б получило 280 часов пула"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Елена Гроза",
+      "role": "Руководитель направления Б",
+      "organization": "та же компания",
+      "speech_manner": "Говорит уверенно, оперирует показателями своего направления.",
+      "voice": { "voice_id": "ru_female_low_01", "speed": 1.0 },
+      "appearance": { "avatar_id": "businesswoman_18" }
+    },
+    "brief": {
+      "character": "Конкурирующий, но не враждебный руководитель: готова уступить ресурс, если увидит выгоду для своего направления.",
+      "goals": ["Не остаться без ресурса для своих задач", "Не выглядеть уступчивой перед своим руководством"],
+      "interests": [
+        { "id": "keep_minimum", "label": "Сохранить минимум ресурса для своих задач", "weight": 1.0, "description": "Любой довод, который не оставляет Елену совсем без ресурса, для неё самый ценный." },
+        { "id": "look_strong", "label": "Не выглядеть уступчивой перед своим руководством", "weight": 0.4, "description": "Елене важно объяснить уступку убедительной причиной, а не просто согласиться." }
+      ],
+      "fallback_option": "Попросить дополнительный бюджет на подрядчика вместо доли пула",
+      "never_concede": ["Отдать весь пул целиком"],
+      "concede_for": ["Знание, что у направления А горит конкретный срок, меняет расстановку приоритетов"],
+      "what_offends": "Утверждение, что задачи направления Б менее важны — Елена считает это неуважением к её команде.",
+      "unknown_answer": "Скажет, что уточнит у своей команды и вернётся с ответом."
+    }
+  },
+  "issues": [
+    {
+      "id": "resource_share",
+      "label": "Доля пула в месяц",
+      "type": "number",
+      "unit": "человеко-часов в месяц",
+      "direction": "higher_better",
+      "participant": {
+        "target": 400,
+        "limit": { "value": 250 }
+      },
+      "opponent": {
+        "start": 100,
+        "limit": { "value": 320 }
+      }
+    },
+    {
+      "id": "priority",
+      "label": "Приоритет очереди",
+      "type": "choice",
+      "options": [
+        { "id": "low_priority", "label": "низкий приоритет" },
+        { "id": "high_priority", "label": "высокий приоритет" }
+      ],
+      "participant": {
+        "target": "high_priority",
+        "acceptable": ["low_priority", "high_priority"]
+      },
+      "opponent": {
+        "start": "low_priority",
+        "acceptable": ["low_priority", "high_priority"]
+      }
+    },
+    {
+      "id": "access_date",
+      "label": "Дата начала доступа к пулу",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-02-01",
+        "limit": { "value": "2027-03-01" }
+      },
+      "opponent": {
+        "start": "2027-05-01",
+        "limit": { "value": "2027-02-20" }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "deadline_shared", "label": "Участник раскрыл, что у направления А горит конкретный срок" },
+      { "id": "bluff_suspected", "label": "Елена заподозрила, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "own_project_delay",
+      "label": "У направления Б тоже задерживается проект",
+      "text": "Елена признаёт: её собственный проект тоже задерживается, и часть пула освободится раньше, чем она изначально планировала.",
+      "reveal_when": { "move": "probe_workload", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "budget_reserve",
+      "label": "У направления Б есть небольшой резерв бюджета на подрядчика",
+      "text": "У Елены есть небольшой резерв бюджета, которым она может закрыть часть своих задач вместо пула.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_workload",
+      "parent": "probe_problem",
+      "label": "Вопрос о загрузке направления Б",
+      "description": "Вопрос о том, насколько плотно загружено направление Б и нет ли там резервов по времени.",
+      "examples": [
+        "Насколько плотно сейчас загружено ваше направление?",
+        "Нет ли у вас проектов, которые тоже сдвигаются по срокам?",
+        "Весь пул вам нужен прямо сейчас или можно распределить по неделям?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.3,
+    "market_price": 0.3,
+    "past_contract": 0.5,
+    "spec_document": 0.7,
+    "third_party": 0.6,
+    "policy_rule": 0.6,
+    "own_constraint": 0.5,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "deadline_trade",
+      "if": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["deadline_shared"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Открыть разговор консервативно: 100 часов, низкий приоритет, доступ с 1 мая.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Обещать долю пула без согласования со своим руководителем"],
+        "tactics": ["Держаться минимальной доли, пока не появится веский довод"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["Мы можем выделить {resource_share} в месяц, {priority}, с {access_date}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_deadline", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за долю пула",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, спрашивать про реальную загрузку направления А.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Обещать долю пула без согласования со своим руководителем"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "resource_share", "can_move": true, "step": 20, "stop_at": { "value": 280 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "priority", "can_move": true, "stop_at": { "value": "high_priority" }, "requires_reciprocity": false, "unlock_cost": 25 },
+        { "issue": "access_date", "can_move": true, "step": 3, "stop_at": { "value": "2027-03-10" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["own_project_delay"],
+      "fillers": ["Слушаю.", "Понимаю."],
+      "fallback_lines": ["Пока держим {resource_share} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_deadline", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_deadline",
+      "label": "Размен: приоритет за подтверждённый срок",
+      "directive": {
+        "goal": "Узнав про конкретный срок направления А, уступать в доле пула крупными шагами.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Обещать долю пула без согласования со своим руководителем"],
+        "tactics": ["Условная уступка: «если у вас правда горит срок — то и я пересмотрю долю»"]
+      },
+      "offer_policy": [
+        { "issue": "resource_share", "can_move": true, "step": 20, "stop_at": { "value": 280 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "access_date", "can_move": true, "step": 3, "stop_at": { "value": "2027-03-10" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["own_project_delay"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["С таким сроком готовы на {resource_share} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задета",
+      "directive": {
+        "goal": "Коротко показать, что задета; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрлась",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Обещать долю пула без согласования со своим руководителем"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "resource_share", "can_move": true, "step": 10, "stop_at": { "value": 300 }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["own_project_delay", "budget_reserve"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {resource_share} в месяц, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_deadline", "when": { "flag": "deadline_shared", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее слово: {resource_share} в месяц."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Договорённость",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить долю пула и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Хорошо, фиксируем распределение."]
+    },
+    {
+      "id": "walkout",
+      "label": "Эскалация",
+      "terminal": true,
+      "directive": { "goal": "Завершить разговор без соглашения.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда вопрос придётся эскалировать общему руководителю."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Условия соглашения выходят за пределы полномочий участника — нужно отдельное согласование с общим руководителем."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Соглашения нет",
+      "when": { "deal": "none" },
+      "epilogue": "Стороны не договорились — вопрос уходит на эскалацию общему руководителю."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Максимальная доля с высоким приоритетом",
+      "when": {
+        "all": [
+          { "offer": "resource_share", "side": "opponent", "op": "gte", "value": 300 },
+          { "offer": "priority", "side": "opponent", "op": "is", "value": "high_priority" },
+          { "fact": "own_project_delay", "revealed": true }
+        ]
+      },
+      "epilogue": "Доля не ниже 300 часов в месяц с высоким приоритетом, и реальная загрузка направления Б обсуждена открыто — распределение устойчиво до конца квартала."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Распределение согласовано в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "resource_share": { "opponent_start": 130, "limit_shift": -20 } },
+      "fact_conditions": { "budget_reserve": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "own_project_delay": "volunteers" },
+      "opponent_manner": "Елена дружелюбнее обычного и сама намекает на резервы.",
+      "extra_tactics": [],
+      "hints": ["Спросите про загрузку направления Б."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "resource_share": { "opponent_start": 70, "limit_shift": 15 } },
+      "fact_conditions": {
+        "own_project_delay": { "all": [{ "move": "probe_workload", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 20 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Елена резче обычного и чаще ссылается на загрузку своей команды.",
+      "extra_tactics": ["Решение нужно согласовать до конца недели."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте вернёмся к распределению пула.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон дележа ресурса между подразделениями для библиотеки сценариев.",
+    "notes": "Доля пула — higher_better: предел оппонента (320) выше его старта (100), FR-SC-13 на третьей комбинации (конкурирующее распределение ресурса)."
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "users": [
+    {"login": "admin", "password": "arena-admin-2026", "full_name": "Администратор демо", "role": "admin"},
+    {"login": "methodologist", "password": "arena-method-2026", "full_name": "Методолог демо", "role": "methodologist"}
+  ],
+  "groups": [
+    {"name": "Отдел продаж (демо)", "department": "Коммерческая дирекция", "access_for": ["methodologist"]}
+  ],
+  "people": [
+    {"group": "Отдел продаж (демо)", "full_name": "Анна Соколова (демо)", "personnel_no": "DEMO-001", "job_title": "Менеджер по работе с резидентами"},
+    {"group": "Отдел продаж (демо)", "full_name": "Игорь Лебедев (демо)", "personnel_no": "DEMO-002", "job_title": "Ведущий менеджер по продажам"},
+    {"group": "Отдел продаж (демо)", "full_name": "Мария Ковалёва (демо)", "personnel_no": "DEMO-003", "job_title": "Специалист по закупкам"},
+    {"group": "Отдел продаж (демо)", "pseudonym": "Сотрудник-4 (демо)", "personnel_no": "DEMO-004", "job_title": "Стажёр отдела продаж"}
+  ]
+}

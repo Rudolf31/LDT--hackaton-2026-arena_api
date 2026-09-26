@@ -1,0 +1,290 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "demo_quickstart",
+    "version": 0,
+    "title": "Демонстрация тренажёра",
+    "mode": "training",
+    "sphere": "other",
+    "negotiation_type": "distributive",
+    "tags": ["демо", "быстрый разговор"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Вы нашли на маркетплейсе подержанный ноутбук нужной вам конфигурации. Продавец — частное лицо, торопится продать.",
+    "participant_role": "Покупатель на маркетплейсе",
+    "goal": "Купить ноутбук по цене не выше цели",
+    "constraints": ["Цену выше 27 500 ₽ вы согласовать не готовы без дополнительного довода"],
+    "fallback_option": "Похожий ноутбук у другого продавца за 29 000 ₽",
+    "known_facts": ["Средняя цена такой модели на маркетплейсе — около 26 000 ₽"],
+    "time_limit_minutes": 5,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Дмитрий Носов",
+      "role": "Частный продавец",
+      "organization": "—",
+      "speech_manner": "Говорит быстро и неформально, торопится закрыть сделку.",
+      "voice": { "voice_id": "ru_male_mid_01", "speed": 1.05 },
+      "appearance": { "avatar_id": "casual_man_08" }
+    },
+    "brief": {
+      "character": "Продавец, которому нужны деньги быстро: легко идёт на уступки, если слышит конкретную цифру.",
+      "goals": ["Продать сегодня же", "Не продешевить совсем"],
+      "interests": [
+        { "id": "sell_today", "label": "Продать сегодня же", "weight": 1.0, "description": "Любой довод, который ускоряет сделку, для Дмитрия самый ценный." },
+        { "id": "not_too_cheap", "label": "Не продать совсем дёшево", "weight": 0.4, "description": "Дмитрий не хочет продавать сильно ниже рыночной цены." }
+      ],
+      "fallback_option": "Сдать ноутбук в скупку за 22 000 ₽",
+      "never_concede": ["Гарантия дольше двух недель"],
+      "concede_for": ["Готовность забрать сегодня же и оплатить сразу"],
+      "what_offends": "Слишком низкая цена без объяснений — Дмитрий воспринимает это как неуважение.",
+      "unknown_answer": "Скажет, что не помнит точно и посмотрит в документах."
+    }
+  },
+  "issues": [
+    {
+      "id": "price",
+      "label": "Цена ноутбука",
+      "type": "number",
+      "unit": "₽",
+      "direction": "lower_better",
+      "participant": {
+        "target": 25000,
+        "limit": { "value": 30000 }
+      },
+      "opponent": {
+        "start": 35000,
+        "limit": { "value": 27000 }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 50, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 14, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "bluff_suspected", "label": "Дмитрий заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "minor_scratch",
+      "label": "На крышке ноутбука небольшая царапина",
+      "text": "Дмитрий признаёт: на крышке есть небольшая царапина, о которой не было сказано в объявлении.",
+      "reveal_when": { "move": "probe_problem", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [],
+  "evidence_weights": {
+    "competitor_quote": 0.6,
+    "market_price": 0.8,
+    "past_contract": 0.4,
+    "spec_document": 0.5,
+    "third_party": 0.3,
+    "policy_rule": 0.2,
+    "own_constraint": 0.3,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5, "credit": 35 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10, "credit": 35 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Поздороваться и назвать стартовую цену 35 000 ₽.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": [],
+        "tactics": ["Назвать стартовую цену уверенно"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Ну смотрите."],
+      "fallback_lines": ["Отдам за {price}."],
+      "transitions": [
+        { "to": "hardened", "when": { "move": "insult", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг",
+      "directive": {
+        "goal": "Уступать быстро при первом же конкретном доводе — продавец торопится.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut", "accept"],
+        "forbidden": [],
+        "tactics": ["Уступить сразу при ссылке на рыночную цену"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 3000, "stop_at": { "value": 27000 }, "requires_reciprocity": false, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["minor_scratch"],
+      "fillers": ["Ну давайте посмотрим."],
+      "fallback_lines": ["Пока {price}."],
+      "transitions": [
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 3, "to": "last_offer" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Держаться цены, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut", "accept"],
+        "forbidden": [],
+        "tactics": ["Повторять последнюю цену"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 1000, "stop_at": { "value": 27000 }, "requires_reciprocity": false, "unlock_cost": 35 }
+      ],
+      "may_reveal": ["minor_scratch"],
+      "fillers": ["Не, дешевле не отдам."],
+      "fallback_lines": ["{price}, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": [],
+        "tactics": ["Дать понять, что цена последняя"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Ну что, берёте?"],
+      "fallback_lines": ["Последняя цена: {price}."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить цену и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Идёт."],
+      "fallback_lines": ["Отлично, договорились."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": { "goal": "Вежливо завершить разговор без сделки.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Ну ладно."],
+      "fallback_lines": ["Тогда не сошлись."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Сделка заключена дороже цены, на которую вы были готовы без дополнительного довода."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Сделки нет",
+      "when": { "deal": "none" },
+      "epilogue": "Договориться не удалось — ноутбук не куплен."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Отличная цена",
+      "when": { "all": [{ "offer": "price", "side": "opponent", "op": "lte", "value": 27500 }] },
+      "epilogue": "Цена не выше 27 500 ₽ — заметно ниже средней рыночной. Отличная сделка за пару реплик."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "Нормальная сделка",
+      "when": { "always": true },
+      "epilogue": "Сделка заключена в разумных пределах."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 18,
+      "trust_initial": 60,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "price": { "opponent_start": 32000, "limit_shift": -3000 } },
+      "fact_conditions": {},
+      "fact_styles": {},
+      "opponent_manner": "Дмитрий ещё больше торопится продать и сам предлагает скидку.",
+      "extra_tactics": [],
+      "hints": ["Сошлитесь на среднюю цену такой модели на маркетплейсе."]
+    },
+    "hard": {
+      "patience_initial": 10,
+      "trust_initial": 40,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "price": { "opponent_start": 37000, "limit_shift": 2000 } },
+      "fact_conditions": {},
+      "fact_styles": {},
+      "opponent_manner": "Дмитрий торгуется жёстче и не сразу верит цифрам.",
+      "extra_tactics": ["Говорит, что цена действует только сейчас."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте про ноутбук.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Короткий демо-сценарий: один предмет торга, лучший финал достижим за 3–4 реплики.",
+    "notes": "Разговор короче минуты: цена — единственный предмет, стоимость шага низкая, продавец уступает быстро."
+  }
+}

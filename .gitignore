@@ -1,0 +1,35 @@
+# Секреты: .env с мастер-ключом, HMAC-секретом и паролями в репозиторий не попадают
+# никогда. Шаблон .env.example — попадает.
+.env
+.env.*
+!.env.example
+
+# Сборка и тесты Go
+/project/bin/
+/project/portal
+*.test
+*.out
+coverage.*
+
+# Производные файлы (дублирует project/.gitignore — на случай, если его уберут)
+/project/api/gen/arena-api.codegen.yaml
+/project/vendor/
+
+# Python-скрипты проекта (preprocess.py, check_no_score_sum.py)
+__pycache__/
+*.pyc
+
+# Редакторы и ОС
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Временные файлы Word/LibreOffice рядом с .docx
+~$*
+.~lock.*#
+
+# Локальные настройки Claude Code
+.claude/settings.local.json

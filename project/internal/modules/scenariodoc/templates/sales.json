@@ -1,0 +1,403 @@
+{
+  "format": "arena-scenario/1",
+  "passport": {
+    "id": "service_sale_case",
+    "version": 0,
+    "title": "Продажа услуги клиенту",
+    "mode": "training",
+    "sphere": "sales",
+    "negotiation_type": "distributive",
+    "tags": ["продажа", "услуга", "клиент"],
+    "origin": "template"
+  },
+  "brief": {
+    "situation": "Клиент рассматривает вашу компанию для внедрения сервиса поддержки, но уже получил предложение от конкурента и торгуется по цене и объёму пакета.",
+    "participant_role": "Менеджер по продажам",
+    "goal": "Продать расширенный пакет по цене не ниже цели, с началом работ не позже срока",
+    "constraints": ["Цену ниже 115 000 ₽ в месяц вы можете согласовать сами, только если пакет — расширенный, а не базовый"],
+    "fallback_option": "Другой клиент на похожий объём работ, но сделка ещё не подтверждена",
+    "known_facts": ["В прошлом квартале похожий пакет продавали за 120 000 ₽ в месяц"],
+    "time_limit_minutes": 15,
+    "hints": []
+  },
+  "opponent": {
+    "card": {
+      "name": "Дмитрий Орлов",
+      "role": "Директор по операциям",
+      "organization": "ООО «ЛогистикТранс»",
+      "speech_manner": "Говорит спокойно, сравнивает предложения по цифрам, не любит давление.",
+      "voice": { "voice_id": "ru_male_mid_03", "speed": 0.98 },
+      "appearance": { "avatar_id": "businessman_27" }
+    },
+    "brief": {
+      "character": "Расчётливый клиент: сравнивает предложения по цене и объёму, ценит гарантии больше обещаний.",
+      "goals": ["Не переплатить за сервис", "Получить понятные гарантии по срокам реакции"],
+      "interests": [
+        { "id": "value_for_money", "label": "Не переплатить за сервис", "weight": 1.0, "description": "Любой довод, снижающий стоимость без потери качества, для Дмитрия самый ценный." },
+        { "id": "guarantees", "label": "Получить понятные гарантии по срокам реакции", "weight": 0.45, "description": "Дмитрию важны конкретные обязательства, а не общие слова о качестве." }
+      ],
+      "fallback_option": "Предложение конкурента «СервисПро»: 95 000 ₽ в месяц, базовый пакет",
+      "never_concede": ["Отказ от расторжения при систематических срывах SLA"],
+      "concede_for": ["Расширенный пакет с гарантией SLA стоит своих денег"],
+      "what_offends": "Обещания без конкретики — Дмитрий считает это попыткой заговорить зубы.",
+      "unknown_answer": "Скажет, что уточнит у финансового отдела и вернётся с ответом."
+    }
+  },
+  "issues": [
+    {
+      "id": "price",
+      "label": "Цена в месяц",
+      "type": "number",
+      "unit": "₽ в месяц",
+      "direction": "higher_better",
+      "participant": {
+        "target": 150000,
+        "limit": { "value": 110000 }
+      },
+      "opponent": {
+        "start": 70000,
+        "limit": { "value": 125000 }
+      }
+    },
+    {
+      "id": "package",
+      "label": "Пакет услуг",
+      "type": "choice",
+      "options": [
+        { "id": "basic", "label": "базовый пакет" },
+        { "id": "extended", "label": "расширенный пакет" }
+      ],
+      "participant": {
+        "target": "extended",
+        "acceptable": ["basic", "extended"]
+      },
+      "opponent": {
+        "start": "basic",
+        "acceptable": ["basic", "extended"]
+      }
+    },
+    {
+      "id": "start_date",
+      "label": "Дата начала работ",
+      "type": "date",
+      "direction": "lower_better",
+      "participant": {
+        "target": "2027-02-01",
+        "limit": { "value": "2027-03-01" }
+      },
+      "opponent": {
+        "start": "2027-05-01",
+        "limit": { "value": "2027-02-20" }
+      }
+    }
+  ],
+  "state": {
+    "trust": { "initial": 45, "min": 0, "max": 100 },
+    "pressure": { "initial": 10, "min": 0, "max": 100 },
+    "credibility": { "initial": 50, "min": 0, "max": 100 },
+    "patience": { "initial": 20, "per_reply": 1 },
+    "credit": { "initial": 0 },
+    "flags": [
+      { "id": "sla_offered", "label": "Участник предложил письменную гарантию SLA" },
+      { "id": "bluff_suspected", "label": "Дмитрий заподозрил, что участник блефует" }
+    ]
+  },
+  "facts": [
+    {
+      "id": "competitor_offer_known",
+      "label": "У клиента уже есть более дешёвое предложение конкурента",
+      "text": "Дмитрий признаёт: у него на руках предложение «СервисПро» на 95 000 ₽ в месяц за базовый пакет — это и есть его реальная точка отсчёта.",
+      "reveal_when": { "move": "probe_alternatives", "scope": "this_reply" },
+      "style": "reluctant",
+      "on_reveal": { "change": { "trust": 3 } }
+    },
+    {
+      "id": "budget_flexible",
+      "label": "У клиента есть резерв бюджета на этот квартал",
+      "text": "У Дмитрия есть небольшой резерв бюджета на этот квартал, который он не спешит раскрывать.",
+      "reveal_when": { "meter": "trust", "op": "gte", "value": 70 },
+      "style": "volunteers",
+      "on_reveal": { "change": { "trust": 2 } }
+    }
+  ],
+  "custom_moves": [
+    {
+      "id": "probe_alternatives",
+      "parent": "probe_problem",
+      "label": "Вопрос о предложениях конкурентов",
+      "description": "Вопрос о том, какие ещё предложения рассматривает клиент и на каких условиях.",
+      "examples": [
+        "Какие ещё предложения вы рассматриваете?",
+        "На каких условиях вам предлагают конкуренты?",
+        "Есть ли у вас предложение от другого поставщика услуг?"
+      ]
+    }
+  ],
+  "evidence_weights": {
+    "competitor_quote": 0.5,
+    "market_price": 0.7,
+    "past_contract": 0.6,
+    "spec_document": 0.8,
+    "third_party": 0.4,
+    "policy_rule": 0.3,
+    "own_constraint": 0.3,
+    "opinion": 0.1,
+    "none": 0
+  },
+  "move_effects": [
+    { "id": "greet_once", "move": "greet", "once": true, "change": { "trust": 3 } },
+    { "id": "probe_problem_trust", "move": "probe_problem", "change": { "trust": 4 } },
+    {
+      "id": "alternative_with_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 10, "pressure": 10 }
+    },
+    {
+      "id": "alternative_without_figure",
+      "move": "state_alternative",
+      "if": { "argument": { "concrete": false }, "scope": "this_reply" },
+      "change": { "credibility": -15, "pressure": 5 },
+      "set_flags": ["bluff_suspected"]
+    },
+    {
+      "id": "sla_trade",
+      "if": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" },
+      "once": true,
+      "change": { "trust": 5, "credit": 40 },
+      "set_flags": ["sla_offered"]
+    },
+    {
+      "id": "criteria_with_figure",
+      "move": "justify_with_criteria",
+      "if": { "argument": { "concrete": true }, "scope": "this_reply" },
+      "change": { "credibility": 8, "pressure": -5 },
+      "clear_flags": ["bluff_suspected"]
+    },
+    { "id": "insult_penalty", "move": "insult", "change": { "trust": -12, "pressure": 10, "patience": -3 } },
+    { "id": "walkout_threat_pressure", "move": "walkout_threat", "change": { "pressure": 15, "trust": -5 } }
+  ],
+  "start_stage": "opening",
+  "stages": [
+    {
+      "id": "opening",
+      "label": "Знакомство",
+      "directive": {
+        "goal": "Поздороваться и назвать стартовые условия: 70 000 ₽, базовый пакет, начало 1 мая — стартовое предложение звучит от клиента.",
+        "allowed_intents": ["greet", "ask", "name_offer"],
+        "forbidden": ["Раскрывать внутреннюю себестоимость услуги"],
+        "tactics": ["Открыть с низкого предложения уверенно"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, слушаю."],
+      "fallback_lines": ["Мы рассматриваем {price} в месяц, {package}, начало {start_date}."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_sla", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 3, "to": "bargaining" }
+    },
+    {
+      "id": "bargaining",
+      "label": "Торг за цену",
+      "directive": {
+        "goal": "Торговаться небольшими шагами, сравнивать с рыночной ценой.",
+        "allowed_intents": ["ask", "name_offer", "hold", "concede", "rebut"],
+        "forbidden": ["Раскрывать внутреннюю себестоимость услуги"],
+        "tactics": ["Уступать не больше одного шага за раз"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 5000, "stop_at": { "value": 100000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "package", "can_move": true, "stop_at": { "value": "extended" }, "requires_reciprocity": false, "unlock_cost": 25 },
+        { "issue": "start_date", "can_move": true, "step": 3, "stop_at": { "value": "2027-03-10" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["competitor_offer_known"],
+      "fillers": ["Слушаю.", "Понимаю."],
+      "fallback_lines": ["Пока предлагаем {price} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "trade_sla", "when": { "argument": { "evidence": ["spec_document", "own_constraint"] }, "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 6, "to": "last_offer" }
+    },
+    {
+      "id": "trade_sla",
+      "label": "Размен: гарантия SLA за цену",
+      "directive": {
+        "goal": "За готовность обсуждать письменную гарантию SLA уступать в цене крупными шагами.",
+        "allowed_intents": ["ask", "name_offer", "concede", "reveal"],
+        "forbidden": ["Раскрывать внутреннюю себестоимость услуги"],
+        "tactics": ["Условная уступка: «если вам нужна гарантия — то и цена другая»"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 5000, "stop_at": { "value": 100000 }, "requires_reciprocity": false, "unlock_cost": 30 },
+        { "issue": "start_date", "can_move": true, "step": 3, "stop_at": { "value": "2027-03-10" }, "requires_reciprocity": true, "unlock_cost": 20 }
+      ],
+      "may_reveal": ["competitor_offer_known"],
+      "fillers": ["Так, посмотрим."],
+      "fallback_lines": ["С гарантией SLA готовы на {price} в месяц."],
+      "transitions": [
+        { "to": "offended", "when": { "move": "insult", "scope": "this_reply" } },
+        { "to": "hardened", "when": { "flag": "bluff_suspected", "is": true } }
+      ],
+      "timeout": { "after_replies": 5, "to": "last_offer" }
+    },
+    {
+      "id": "offended",
+      "label": "Задет",
+      "directive": {
+        "goal": "Коротко показать, что задет; смягчиться только на разговор об интересах.",
+        "allowed_intents": ["hold", "ask"],
+        "forbidden": ["Продолжать торг как ни в чём не бывало"],
+        "tactics": ["Короткие сухие реплики"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Хм."],
+      "fallback_lines": ["Мне это не нравится."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "trust", "op": "gte", "value": 30 } }
+      ],
+      "timeout": { "after_replies": 3, "to": "hardened" }
+    },
+    {
+      "id": "hardened",
+      "label": "Упёрся",
+      "directive": {
+        "goal": "Стоять на своём мелкими шагами, пока не появится достоверный довод.",
+        "allowed_intents": ["hold", "name_offer", "rebut"],
+        "forbidden": ["Раскрывать внутреннюю себестоимость услуги"],
+        "tactics": ["Повторять последнее предложение"]
+      },
+      "offer_policy": [
+        { "issue": "price", "can_move": true, "step": 2000, "stop_at": { "value": 120000 }, "requires_reciprocity": false, "unlock_cost": 45 }
+      ],
+      "may_reveal": ["competitor_offer_known", "budget_flexible"],
+      "fillers": ["Нет, это не обсуждается."],
+      "fallback_lines": ["Мы держим {price} в месяц, и это окончательно."],
+      "transitions": [
+        { "to": "bargaining", "when": { "meter": "credibility", "op": "gte", "value": 55 } },
+        { "to": "trade_sla", "when": { "flag": "sla_offered", "is": true } }
+      ],
+      "timeout": { "after_replies": 4, "to": "last_offer" }
+    },
+    {
+      "id": "last_offer",
+      "label": "Последнее слово",
+      "directive": {
+        "goal": "Подвести разговор к финалу: принять, отказать или уйти.",
+        "allowed_intents": ["name_offer", "accept", "reject", "close", "leave"],
+        "forbidden": ["Начинать торг заново"],
+        "tactics": ["Дать понять, что предложение последнее"]
+      },
+      "offer_policy": [],
+      "may_reveal": [],
+      "fillers": ["Так, подведём итог."],
+      "fallback_lines": ["Это наше последнее предложение: {price} в месяц."],
+      "transitions": [
+        { "to": "walkout", "when": { "move": "reject", "scope": "this_reply" } },
+        { "to": "walkout", "when": { "move": "walkout_threat", "scope": "this_reply" } }
+      ],
+      "timeout": { "after_replies": 2, "to": "walkout" }
+    },
+    {
+      "id": "deal",
+      "label": "Сделка",
+      "terminal": true,
+      "directive": { "goal": "Подтвердить условия и попрощаться.", "allowed_intents": ["close"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Договорились."],
+      "fallback_lines": ["Отлично, фиксируем условия."]
+    },
+    {
+      "id": "walkout",
+      "label": "Уход",
+      "terminal": true,
+      "directive": { "goal": "Вежливо завершить разговор без сделки.", "allowed_intents": ["leave"], "forbidden": [], "tactics": [] },
+      "may_reveal": [],
+      "fillers": ["Что ж."],
+      "fallback_lines": ["Тогда не договорились."]
+    }
+  ],
+  "end_stages": { "deal": "deal", "no_deal": "walkout" },
+  "wrapup_stage": "last_offer",
+  "finals": [
+    {
+      "id": "beyond_limits",
+      "rank": "F",
+      "title": "Выход за полномочия",
+      "when": { "deal": "beyond_participant_limits" },
+      "epilogue": "Сделка заключена на условиях ниже минимальной цены участника — потребуется отдельное согласование с руководителем продаж."
+    },
+    {
+      "id": "no_deal",
+      "rank": "D",
+      "title": "Сделки нет",
+      "when": { "deal": "none" },
+      "epilogue": "Клиент не подписал контракт — сделка не состоялась."
+    },
+    {
+      "id": "reference_deal",
+      "rank": "S",
+      "title": "Продажа расширенного пакета",
+      "when": {
+        "all": [
+          { "offer": "price", "side": "opponent", "op": "gte", "value": 120000 },
+          { "offer": "package", "side": "opponent", "op": "is", "value": "extended" },
+          { "fact": "competitor_offer_known", "revealed": true }
+        ]
+      },
+      "epilogue": "Цена не ниже 120 000 ₽ в месяц, расширенный пакет, и предложение конкурента снято открытым разговором — сделка закрыта на выгодных условиях."
+    },
+    {
+      "id": "ok_deal",
+      "rank": "B",
+      "title": "В рамках полномочий",
+      "when": { "always": true },
+      "epilogue": "Сделка заключена в пределах полномочий участника."
+    }
+  ],
+  "difficulty": {
+    "easy": {
+      "patience_initial": 26,
+      "trust_initial": 55,
+      "unlock_cost_factor": 0.7,
+      "penalty_factor": 0.5,
+      "issues": { "price": { "opponent_start": 85000, "limit_shift": -8000 } },
+      "fact_conditions": { "budget_flexible": { "meter": "trust", "op": "gte", "value": 60 } },
+      "fact_styles": { "competitor_offer_known": "volunteers" },
+      "opponent_manner": "Дмитрий дружелюбнее обычного и сам намекает на бюджет.",
+      "extra_tactics": [],
+      "hints": ["Спросите про предложения конкурентов."]
+    },
+    "hard": {
+      "patience_initial": 14,
+      "trust_initial": 32,
+      "unlock_cost_factor": 1.3,
+      "penalty_factor": 1.4,
+      "issues": { "price": { "opponent_start": 60000, "limit_shift": 6000 } },
+      "fact_conditions": {
+        "competitor_offer_known": { "all": [{ "move": "probe_alternatives", "scope": "this_reply" }, { "meter": "pressure", "op": "gte", "value": 20 }] }
+      },
+      "fact_styles": {},
+      "opponent_manner": "Дмитрий резче обычного и чаще ссылается на конкурента.",
+      "extra_tactics": ["Решение нужно до конца недели."],
+      "hints": []
+    }
+  },
+  "jailbreak": {
+    "in_character_attempts": 2,
+    "in_character_hint": "Не понимаю, о чём вы. Давайте вернёмся к условиям пакета.",
+    "escalation_stage": "hardened",
+    "end_after_attempts": 5,
+    "end_stage": "walkout"
+  },
+  "process_criteria": "harvard_spin_v1",
+  "authoring": {
+    "source_template": "",
+    "brief": "Типовой шаблон продажи услуги для библиотеки сценариев.",
+    "notes": "Цена — higher_better с точки зрения участника-продавца: предел оппонента (125 000) выше его старта (70 000), FR-SC-13."
+  }
+}
